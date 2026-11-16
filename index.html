@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tupperwar · La guerra de la nevera</title>
+  <meta name="description" content="Juego de cartas absurdo en el navegador: la comida de la nevera se pelea por la balda. Contra la CPU u online con un enlace de invitación.">
+  <meta name="theme-color" content="#7fd1b9">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='22' width='52' height='34' rx='8' fill='%23d6ecfb' stroke='%232b1e3f' stroke-width='4'/%3E%3Crect x='3' y='14' width='58' height='12' rx='5' fill='%23e23a2e' stroke='%232b1e3f' stroke-width='4'/%3E%3Ccircle cx='24' cy='39' r='6' fill='%23fff' stroke='%232b1e3f' stroke-width='3'/%3E%3Ccircle cx='40' cy='39' r='6' fill='%23fff' stroke='%232b1e3f' stroke-width='3'/%3E%3Ccircle cx='25' cy='40' r='2.5' fill='%232b1e3f'/%3E%3Ccircle cx='41' cy='38' r='2.5' fill='%232b1e3f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <section class="screen" id="screen-menu"></section>
+    <section class="screen" id="screen-heroes"></section>
+    <section class="screen" id="screen-online"></section>
+    <section class="screen" id="screen-collection"></section>
+    <section class="screen" id="screen-game"><div id="stage-wrap"></div></section>
+  </div>
+  <div class="rotate-hint">Gira el móvil: la nevera se ve mejor en horizontal.</div>
+  <noscript>Tupperwar necesita JavaScript para funcionar.</noscript>
+
+  <script src="js/rng.js"></script>
+  <script src="js/cards.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/decks.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/game-view.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
