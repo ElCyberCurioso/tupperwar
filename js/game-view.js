@@ -16,13 +16,22 @@
     handY: 886, liftY: 742, oppHandY: 2,
     mana: [[1218, 850], [1218, 34]],
   };
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Todas las pausas pasan por aquí: TW.speed las escala (1 = normal, 0.6 = rápidas)
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms * (TW.speed || 1)));
+  const T = {
+    lunge: 980, damage: 680, death: 780, summon: 560, draw: 520, drawOpp: 320, heal: 560, buff: 560, small: 460, say: 420,
+    cast: 700, showcase: 1500, aiThink: 1200, aiBetween: 820, bannerMine: 1550, bannerOpp: 1300, introPause: 850, introLine: 1650,
+  };
   const MISSILE = { garbanzo: '#e8c28a', ketchup: '#e23a2e', fuego: '#ff8a2a', acido: '#ffe75a', peste: '#8fc04a', sal: '#ffffff', bolita: '#a55eea' };
   const ICONS = {
     dr: '<svg viewBox="0 0 20 20"><path d="M5 7h10l-1.2 10H6.2Z M3.5 5.5h13 M8 3.5h4" stroke="#fff" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>',
     trg: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="#2b1e3f" stroke-width="2"/><path d="M10 5.5V10l3 2" stroke="#2b1e3f" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
     poi: '<svg viewBox="0 0 20 20"><path d="M10 3c3 4 5 6.5 5 9a5 5 0 0 1-10 0c0-2.5 2-5 5-9Z" fill="#2b1e3f"/></svg>',
     ls: '<svg viewBox="0 0 20 20"><path d="M10 17C3 12 2 8 4 5.5 6 3 9 4 10 6.5 11 4 14 3 16 5.5 18 8 17 12 10 17Z" fill="#2b1e3f"/></svg>',
+    ranged: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6" fill="none" stroke="#2b1e3f" stroke-width="2"/><path d="M10 1v5M10 14v5M1 10h5M14 10h5" stroke="#2b1e3f" stroke-width="2" stroke-linecap="round"/></svg>',
+    cleave: '<svg viewBox="0 0 20 20"><path d="M3 15 8 4M8 16l5-12M13 16l4-10" stroke="#2b1e3f" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    trample: '<svg viewBox="0 0 20 20"><path d="M3 4l6 6-6 6M10 4l6 6-6 6" fill="none" stroke="#2b1e3f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    enrage: '<svg viewBox="0 0 20 20"><path d="M7 3v4H3M13 3v4h4M7 17v-4H3M13 17v-4h4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
   const EMOTES = ['¡Hola!', 'Bien jugado', '¡Ñam!', 'Uy...', 'Esto huele raro', 'Gracias'];
 
@@ -52,6 +61,8 @@
       this.dead = false;
       this.timerTurn = -1;
       this.listeners = [];
+      this.shown = new Map(); // estadísticas que se ven mientras se reproduce una jugada
+      this.rp = null;
     }
 
     /* ---------- montaje ---------- */
@@ -89,6 +100,7 @@
         <div class="emote-wheel">${EMOTES.map((e) => `<button class="btn small white" data-emote="${TW.esc(e)}">${TW.esc(e)}</button>`).join('')}</div>
         <svg id="arrow" viewBox="0 0 ${W} ${H}"></svg>
         <div id="fx"></div>
+        <div class="vignette"></div>
         <div class="preview"></div>
       `;
       this.endBtn = st.querySelector('.end-btn');
@@ -160,12 +172,15 @@
 
     renderHero(p) {
       const g = this.g, h = g.hero(p), el = this.heroEl(p);
+      const sh = this.rp ? this.shown.get(h.uid) : null;
+      const health = sh && sh.h !== undefined ? sh.h : h.health;
+      const armor = sh && sh.arm !== undefined ? sh.arm : h.armor;
       const hp = el.querySelector('.h-hp');
-      hp.querySelector('span').textContent = h.health;
-      hp.classList.toggle('down', h.health < h.maxHealth);
+      hp.querySelector('span').textContent = health;
+      hp.classList.toggle('down', health < h.maxHealth);
       const arm = el.querySelector('.h-arm');
-      arm.style.display = h.armor > 0 ? '' : 'none';
-      arm.querySelector('span').textContent = h.armor;
+      arm.style.display = armor > 0 ? '' : 'none';
+      arm.querySelector('span').textContent = armor;
       const atk = g.attackValue(h);
       const ae = el.querySelector('.h-atk');
       ae.style.display = atk > 0 ? '' : 'none';
@@ -173,6 +188,7 @@
       el.classList.toggle('frozen', h.frozen);
       el.classList.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(h));
     }
+
     renderPower(p) {
       const g = this.g, pl = g.player(p), el = this.powerEl(p);
       const key = pl.heroId + (pl.heroPowerUsed ? 'u' : '');
@@ -222,9 +238,9 @@
     }
 
     renderBoards() {
-      const g = this.g, seen = new Set();
+      const g = this.g, seen = new Set(), rp = this.rp;
       for (const p of [this.me, this.opp]) {
-        const board = g.board(p);
+        const board = g.board(p).filter((m) => !(rp && rp.summon.has(m.uid)));
         const gapAt = p === this.me && this.insertAt !== null ? Math.min(this.insertAt, board.length) : -1;
         const count = board.length + (gapAt >= 0 ? 1 : 0);
         let slot = 0;
@@ -232,16 +248,7 @@
           if (i === gapAt) slot++;
           const pos = this.minionPos(p, slot++, count);
           let el = this.minEls.get(m.uid);
-          if (!el) {
-            el = document.createElement('div');
-            el.className = 'minion spawn';
-            el.dataset.uid = m.uid;
-            el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
-            el.innerHTML = '<div class="m-body"></div><div class="m-atk"><span></span></div><div class="m-hp"><span></span></div><div class="m-icons"></div><div class="m-zzz">Zzz</div>';
-            this.stage.appendChild(el);
-            this.minEls.set(m.uid, el);
-            setTimeout(() => el.classList.remove('spawn'), 500);
-          }
+          if (!el) el = this.makeMinionEl(m.uid, pos);
           this.updateMinion(el, m, p);
           el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
           seen.add(m.uid);
@@ -252,11 +259,42 @@
         }
       }
       for (const [uid, el] of this.minEls) {
-        if (seen.has(uid)) continue;
-        this.minEls.delete(uid);
-        el.classList.add('dying');
-        setTimeout(() => el.remove(), 560);
+        if (seen.has(uid) || (rp && rp.gone.has(uid))) continue;
+        this.killEl(uid, el);
       }
+    }
+
+    makeMinionEl(uid, pos) {
+      const el = document.createElement('div');
+      el.className = 'minion spawn';
+      el.dataset.uid = uid;
+      el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+      el.innerHTML = '<div class="m-body"></div><div class="m-atk"><span></span></div><div class="m-hp"><span></span></div><div class="m-icons"></div><div class="m-zzz">Zzz</div>';
+      this.stage.appendChild(el);
+      this.minEls.set(uid, el);
+      setTimeout(() => el.classList.remove('spawn'), 700);
+      setTimeout(() => { if (!this.dead) { this.ring(pos.x, pos.y + 44); this.burst(pos.x, pos.y + 50, { n: 7, color: '#d9eef0', dist: 80, size: 16, flat: true, dur: 520 }); } }, 230);
+      return el;
+    }
+
+    // Esbirro que entra y muere dentro de la misma jugada: se muestra igualmente
+    ghostMinion(d) {
+      if (this.minEls.has(d.uid)) return;
+      const n = this.g.board(d.p).length, pos = this.minionPos(d.p, n, n + 1);
+      const el = this.makeMinionEl(d.uid, pos);
+      el.dataset.card = d.cardId;
+      el.querySelector('.m-body').innerHTML = TW.Art.svg(d.cardId);
+      el.querySelector('.m-atk span').textContent = d.a;
+      el.querySelector('.m-hp span').textContent = d.h;
+    }
+
+    killEl(uid, el) {
+      this.minEls.delete(uid);
+      if (el.dataset.bounce) { el.classList.add('bouncing'); setTimeout(() => el.remove(), 560); return; }
+      el.classList.add('dying');
+      const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+      setTimeout(() => { if (!this.dead) this.burst(x, y, { n: 10, color: '#d5cfe0', dist: 78, size: 24, grow: 1.5, dur: 620 }); }, 430);
+      setTimeout(() => el.remove(), 820);
     }
 
     updateMinion(el, m, p) {
@@ -266,22 +304,28 @@
         el.dataset.card = m.cardId;
         el.querySelector('.m-body').innerHTML = TW.Art.svg(m.cardId);
       }
+      const sh = this.rp ? this.shown.get(m.uid) : null;
+      const atk = sh && sh.a !== undefined ? sh.a : m.attack, hp = sh && sh.h !== undefined ? sh.h : m.health;
       const a = el.querySelector('.m-atk'), h = el.querySelector('.m-hp');
-      a.querySelector('span').textContent = m.attack;
-      h.querySelector('span').textContent = m.health;
-      a.className = 'm-atk ' + (m.attack > m.baseAttack ? 'up' : m.attack < m.baseAttack ? 'down' : '');
-      h.className = 'm-hp ' + (m.health < m.maxHealth ? 'down' : m.maxHealth > m.baseHealth ? 'up' : '');
+      a.querySelector('span').textContent = atk;
+      h.querySelector('span').textContent = hp;
+      a.className = 'm-atk ' + (atk > m.baseAttack ? 'up' : atk < m.baseAttack ? 'down' : '');
+      h.className = 'm-hp ' + (hp < m.maxHealth ? 'down' : m.maxHealth > m.baseHealth ? 'up' : '');
       const cls = el.classList;
       cls.toggle('taunt', m.taunt); cls.toggle('shield', m.divineShield); cls.toggle('frozen', m.frozen);
       cls.toggle('stealth', m.stealth); cls.toggle('silenced', m.silenced);
-      cls.toggle('asleep', m.sleeping && !m.charge && g.s.current === p && !g.s.over);
+      cls.toggle('asleep', m.sleeping && !m.charge && !m.rush && g.s.current === p && !g.s.over);
       cls.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(m));
       let icons = '';
       if (!m.silenced && d.deathrattle) icons += `<span class="m-icon dr" title="Último bocado">${ICONS.dr}</span>`;
       if (!m.silenced && (d.endOfTurn || d.startOfTurn)) icons += `<span class="m-icon trg" title="Efecto de turno">${ICONS.trg}</span>`;
+      if (!m.silenced && d.onDamaged) icons += `<span class="m-icon enr" title="Cabreo">${ICONS.enrage}</span>`;
       if (m.poisonous) icons += `<span class="m-icon poi" title="Caducado">${ICONS.poi}</span>`;
       if (m.lifesteal) icons += `<span class="m-icon ls" title="Nutritivo">${ICONS.ls}</span>`;
       if (m.windfury) icons += `<span class="m-icon wf" title="Doble ración">×2</span>`;
+      if (m.ranged) icons += `<span class="m-icon rng" title="A distancia">${ICONS.ranged}</span>`;
+      if (m.cleave) icons += `<span class="m-icon clv" title="Salpicón">${ICONS.cleave}</span>`;
+      if (m.trample) icons += `<span class="m-icon trp" title="Arrollar">${ICONS.trample}</span>`;
       const ic = el.querySelector('.m-icons');
       if (ic.innerHTML !== icons) ic.innerHTML = icons;
     }
@@ -293,7 +337,8 @@
     }
 
     renderHand() {
-      const g = this.g, hand = g.player(this.me).hand, n = hand.length;
+      const g = this.g, rp = this.rp;
+      const hand = g.player(this.me).hand.filter((c) => !(rp && rp.draw.has(c.uid))), n = hand.length;
       const seen = new Set();
       hand.forEach((c, i) => {
         let el = this.handEls.get(c.uid);
@@ -302,20 +347,23 @@
           el.className = 'hand-card mine';
           el.dataset.hand = c.uid;
           const [dx, dy] = L.deck[0];
-          el.style.left = dx + 'px'; el.style.top = dy + 'px'; el.style.transform = 'scale(0.6) rotate(-20deg)';
+          el.style.left = dx + 'px'; el.style.top = dy + 'px'; el.style.transform = 'scale(0.62) rotate(-24deg)';
           this.stage.appendChild(el);
           this.handEls.set(c.uid, el);
-          void el.offsetWidth;
         }
         seen.add(c.uid);
         const cd = g.def(c.cardId), bonus = c.bonus || 0;
         if (el.dataset.b !== String(bonus)) {
+          const first = el.dataset.b === undefined;
           el.dataset.b = bonus;
           el.innerHTML = TW.cardHTML(c.cardId, bonus ? { attack: cd.attack + bonus, health: cd.health + bonus } : {});
+          if (first) void el.offsetWidth;
+          else el.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.7) saturate(1.4)' }, { filter: 'brightness(1)' }], { duration: 700 });
         }
         const canPlay = this.interactive() && g.canPlay(this.me, c.uid);
         el.classList.toggle('playable', canPlay);
         el.classList.toggle('combo', canPlay && !!cd.garnish && g.player(this.me).playedThisTurn > 0);
+        if (el.dataset.cast) return;
         if (this.drag && this.drag.uid === c.uid && this.drag.moved) return;
         if (this.aim && this.aim.cardUid === c.uid && this.aim.sc) return;
         if (this.sel === c.uid || (this.aim && this.aim.cardUid === c.uid)) {
@@ -333,9 +381,10 @@
         if (seen.has(uid)) continue;
         this.handEls.delete(uid);
         el.style.opacity = '0';
-        setTimeout(() => el.remove(), 250);
+        setTimeout(() => el.remove(), 300);
       }
     }
+
     place(el, x, y, r, s, z) {
       el.style.left = x + 'px'; el.style.top = y + 'px';
       el.style.transform = `rotate(${r}deg) scale(${s})`;
@@ -343,7 +392,8 @@
     }
 
     renderOppHand() {
-      const hand = this.g.player(this.opp).hand, n = hand.length, seen = new Set();
+      const rp = this.rp;
+      const hand = this.g.player(this.opp).hand.filter((c) => !(rp && rp.draw.has(c.uid))), n = hand.length, seen = new Set();
       hand.forEach((c, i) => {
         let el = this.oppHandEls.get(c.uid);
         if (!el) {
@@ -364,7 +414,7 @@
         if (seen.has(uid)) continue;
         this.oppHandEls.delete(uid);
         el.style.opacity = '0';
-        setTimeout(() => el.remove(), 250);
+        setTimeout(() => el.remove(), 300);
       }
     }
 
@@ -764,9 +814,15 @@
       this.clearAim();
       this.sel = null;
       this.stage.querySelector('.emote-wheel').classList.remove('on');
+      this.render();
       try {
         if (act.type === 'attack') await this.lunge(act.a, act.t);
-        if (act.type === 'play') TW.Sfx.play('play');
+        if (act.type === 'play') { TW.Sfx.play('play'); await this.castAnim(act.uid); }
+        if (act.type === 'power') {
+          const pw = this.powerEl(act.p);
+          pw.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3) rotate(-6deg)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'ease-out' });
+          await sleep(300);
+        }
         const ok = this.applyLogged(act);
         this.insertAt = null;
         if (!ok) { TW.Sfx.play('error'); return; }
@@ -780,6 +836,21 @@
       }
     }
 
+    // Trucos, trampas y utensilios propios: la carta se enseña en grande antes de resolverse
+    async castAnim(uid) {
+      const card = this.g.player(this.me).hand.find((c) => c.uid === uid), el = this.handEls.get(uid);
+      if (!card || !el || this.g.def(card.cardId).type === 'minion') return;
+      el.dataset.cast = '1';
+      el.classList.remove('dragging', 'aiming');
+      el.style.opacity = '1';
+      this.place(el, 330, 445, -3, 1.85, 91);
+      await sleep(T.cast);
+      el.animate([{ filter: 'brightness(1)', opacity: 1 }, { filter: 'brightness(2.6)', opacity: 0 }], { duration: 360, fill: 'forwards', easing: 'ease-in' });
+      this.burst(330, 445, { n: 12, color: '#ffe48a', dist: 150, size: 14, dur: 600 });
+      await sleep(300);
+      el.style.opacity = '0';
+    }
+
     async performRemote(act) {
       while ((this.busy || this.overlayOpen === 'mull') && !this.dead) await sleep(60);
       if (this.dead) return;
@@ -790,14 +861,15 @@
           const card = g.player(act.p).hand.find((c) => c.uid === act.uid);
           if (card) await this.showcase(card.cardId, act.target, act.choice, !!TW.CARDS[card.cardId].trap);
         } else if (act.type === 'attack') {
+          await this.flashArrow(this.centerOf(this.elFor(act.a) || this.heroEl(act.p)), act.t, 520);
           await this.lunge(act.a, act.t);
         } else if (act.type === 'power') {
           const pw = this.powerEl(act.p);
-          pw.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 450 });
-          if (act.target) await this.flashArrow(this.centerOf(pw), act.target, 450);
-          else await sleep(350);
+          pw.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3) rotate(-6deg)' }, { transform: 'scale(1)' }], { duration: 700, easing: 'ease-out' });
+          if (act.target) await this.flashArrow(this.centerOf(pw), act.target, 750);
+          else await sleep(600);
         } else if (act.type === 'end') {
-          await sleep(200);
+          await sleep(T.small);
         }
         const ok = this.applyLogged(act);
         if (!ok) { console.warn('Acción remota rechazada', act); this.o.onDesync && this.o.onDesync(act); return; }
@@ -824,39 +896,107 @@
     async runAI() {
       this.aiRunning = true;
       try {
-        await sleep(650);
+        await sleep(T.aiThink);
         let n = 0;
         while (!this.dead && !this.g.s.over && this.g.s.current === this.opp && n++ < 40) {
           await sleep(40);
           const act = TW.AI.chooseAction(this.g, this.opp, this.level);
           if (!act) break;
           await this.performRemote(act);
-          await sleep(320);
+          await sleep(T.aiBetween);
         }
         if (!this.dead && !this.g.s.over && this.g.s.current === this.opp) await this.performRemote({ type: 'end', p: this.opp });
       } finally { this.aiRunning = false; }
     }
 
     /* ---------- animaciones ---------- */
+    // Ataque: toma impulso, embiste, se queda un instante en el impacto y vuelve
     async lunge(aUid, tUid) {
       const a = this.elFor(aUid), t = this.elFor(tUid);
       if (!a || !t) return;
-      const A = this.centerOf(a), T = this.centerOf(t);
-      const dx = (T.x - A.x) * 0.78, dy = (T.y - A.y) * 0.78;
+      const A = this.centerOf(a), B = this.centerOf(t);
+      const len = Math.hypot(B.x - A.x, B.y - A.y) || 1, reach = Math.max(0, len - 88) / len;
+      const dx = (B.x - A.x) * reach, dy = (B.y - A.y) * reach, ux = (B.x - A.x) / len, uy = (B.y - A.y) / len;
+      const dur = T.lunge * (TW.speed || 1), tilt = ux * 9;
       a.style.zIndex = 60;
+      a.classList.add('attacking');
       const an = a.animate([
-        { transform: 'translate(0,0) scale(1)' },
-        { transform: `translate(${dx * 0.1}px, ${dy * 0.1 - 18}px) scale(1.12)`, offset: 0.25 },
-        { transform: `translate(${dx}px, ${dy}px) scale(1.05)`, offset: 0.5 },
-        { transform: 'translate(0,0) scale(1)' },
-      ], { duration: 560, easing: 'ease-in-out' });
-      an.onfinish = () => { a.style.zIndex = ''; };
-      await sleep(285);
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', easing: 'cubic-bezier(.3,0,.3,1)' },
+        { transform: `translate(${-ux * 34}px, ${-uy * 34}px) scale(1.16) rotate(${-tilt}deg)`, offset: 0.34, easing: 'cubic-bezier(.7,0,.9,.4)' },
+        { transform: `translate(${dx}px, ${dy}px) scale(1.1) rotate(${tilt}deg)`, offset: 0.5 },
+        { transform: `translate(${dx - ux * 10}px, ${dy - uy * 10}px) scale(1.04) rotate(0deg)`, offset: 0.62, easing: 'cubic-bezier(.3,0,.2,1)' },
+        { transform: 'translate(0,0) scale(1) rotate(0deg)' },
+      ], { duration: dur });
+      an.onfinish = () => { a.style.zIndex = ''; a.classList.remove('attacking'); };
+      await new Promise((r) => setTimeout(r, dur * 0.5));
       TW.Sfx.play('hit');
-      if (Math.abs(dy) > 100) this.shakeStage();
+      this.impact(B.x - ux * 46, B.y - uy * 46);
+      t.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${ux * 22}px, ${uy * 22}px) scale(0.94)` }, { transform: 'translate(0,0)' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.3,1)' });
+      this.shakeStage(tUid.startsWith('hero') ? 9 : 5);
+      await new Promise((r) => setTimeout(r, dur * 0.16));
     }
-    shakeStage() {
-      this.stage.animate([{ translate: '0 0' }, { translate: '-5px 3px' }, { translate: '4px -3px' }, { translate: '0 0' }], { duration: 220 });
+    shakeStage(amp = 5) {
+      this.stage.animate([{ translate: '0 0' }, { translate: `${-amp}px ${amp * 0.6}px` }, { translate: `${amp * 0.8}px ${-amp * 0.5}px` }, { translate: `${-amp * 0.4}px ${amp * 0.3}px` }, { translate: '0 0' }], { duration: 320 });
+    }
+
+    /* Partículas y destellos */
+    burst(x, y, o = {}) {
+      const n = o.n || 8;
+      for (let i = 0; i < n; i++) {
+        const d = document.createElement('div');
+        d.className = 'spark';
+        const ang = (i / n) * Math.PI * 2 + Math.random() * 0.7, dist = (o.dist || 70) * (0.55 + Math.random() * 0.6), sz = (o.size || 12) * (0.6 + Math.random() * 0.8);
+        d.style.cssText = `left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;background:${o.color || '#ffd23f'}`;
+        this.fx.appendChild(d);
+        const ex = Math.cos(ang) * dist, ey = o.up ? -Math.abs(Math.sin(ang)) * dist - 24 : o.flat ? Math.sin(ang) * dist * 0.25 : Math.sin(ang) * dist;
+        d.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${ex}px), calc(-50% + ${ey}px)) scale(${o.grow || 0.15})`, opacity: 0 }],
+          { duration: o.dur || 540, easing: 'cubic-bezier(.15,.7,.3,1)' }).onfinish = () => d.remove();
+      }
+    }
+    impact(x, y) {
+      const d = document.createElement('div');
+      d.className = 'impact';
+      d.style.left = x + 'px'; d.style.top = y + 'px';
+      this.fx.appendChild(d);
+      setTimeout(() => d.remove(), 420);
+      this.burst(x, y, { n: 9, color: '#fff3b0', dist: 95, size: 13, dur: 460 });
+    }
+    ring(x, y) {
+      const d = document.createElement('div');
+      d.className = 'ring';
+      d.style.left = x + 'px'; d.style.top = y + 'px';
+      this.fx.appendChild(d);
+      setTimeout(() => d.remove(), 620);
+    }
+    hurt() {
+      const v = this.stage.querySelector('.vignette');
+      v.classList.remove('on'); void v.offsetWidth; v.classList.add('on');
+    }
+    flash(uid, cls) {
+      const el = this.elFor(uid);
+      if (!el) return null;
+      el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+      setTimeout(() => el.classList.remove(cls), 900);
+      return this.centerOf(el);
+    }
+    hitFx(uid, n) {
+      const c = this.flash(uid, 'hit');
+      if (!c) return;
+      this.pop(uid, 'dmg', '-' + n, n);
+      this.burst(c.x, c.y, { n: 6 + Math.min(n, 6), color: '#e23a2e', dist: 62 + n * 7, size: 11 });
+      if (uid.startsWith('hero')) this.shakeStage(Math.min(11, 4 + n));
+    }
+    healFx(uid, n) {
+      const c = this.flash(uid, 'healed');
+      if (!c) return;
+      this.pop(uid, 'heal', '+' + n, n);
+      this.burst(c.x, c.y + 20, { n: 8, color: '#7dea9c', dist: 70, size: 12, up: true, dur: 800 });
+    }
+    buffFx(uid, text) {
+      const c = this.flash(uid, 'buffed');
+      if (!c) return;
+      this.pop(uid, 'txt', text);
+      this.burst(c.x, c.y + 30, { n: 8, color: '#ffd23f', dist: 76, size: 11, up: true, dur: 800 });
     }
 
     async showcase(cardId, targetUid, choice, hidden) {
@@ -870,8 +1010,8 @@
       }
       this.stage.appendChild(sc);
       TW.Sfx.play('play');
-      await sleep(950);
-      if (targetUid) await this.flashArrow({ x: 330, y: 445 }, targetUid, 500);
+      await sleep(T.showcase);
+      if (targetUid) await this.flashArrow({ x: 330, y: 445 }, targetUid, 800);
       sc.classList.remove('in'); sc.classList.add('out');
       setTimeout(() => sc.remove(), 320);
       await sleep(150);
@@ -883,7 +1023,7 @@
       sc.innerHTML = `<div class="trap-title top">¡Trampa!</div>${TW.cardHTML(cardId)}`;
       this.stage.appendChild(sc);
       TW.Sfx.play('shield');
-      await sleep(1400);
+      await sleep(1700);
       sc.classList.remove('in'); sc.classList.add('out');
       setTimeout(() => sc.remove(), 320);
     }
@@ -900,46 +1040,50 @@
     async missile(fromUid, toUid, kind) {
       const fe = this.elFor(fromUid) || this.heroEl(this.g.s.current), te = this.elFor(toUid);
       if (!fe || !te) return;
-      const A = this.centerOf(fe), B = this.centerOf(te);
+      const A = this.centerOf(fe), B = this.centerOf(te), color = MISSILE[kind] || '#e8c28a';
       const m = document.createElement('div');
       m.className = 'missile';
-      m.style.setProperty('--mc', MISSILE[kind] || '#e8c28a');
+      m.style.setProperty('--mc', color);
       m.style.left = A.x + 'px'; m.style.top = A.y + 'px';
       this.fx.appendChild(m);
-      const midY = Math.min(A.y, B.y) - 60;
+      const midY = Math.min(A.y, B.y) - 90, dur = 520 * (TW.speed || 1);
       m.animate([
-        { transform: 'translate(0,0) scale(0.6)' },
-        { transform: `translate(${(B.x - A.x) / 2}px, ${midY - A.y}px) scale(1.2)` },
-        { transform: `translate(${B.x - A.x}px, ${B.y - A.y}px) scale(1)` },
-      ], { duration: 300, easing: 'ease-in' });
-      await sleep(290);
+        { transform: 'translate(0,0) scale(0.5)', easing: 'ease-out' },
+        { transform: `translate(${(B.x - A.x) / 2}px, ${midY - A.y}px) scale(1.35) rotate(200deg)`, easing: 'ease-in' },
+        { transform: `translate(${B.x - A.x}px, ${B.y - A.y}px) scale(1) rotate(400deg)` },
+      ], { duration: dur });
+      await new Promise((r) => setTimeout(r, dur - 20));
       m.remove();
+      this.burst(B.x, B.y, { n: 7, color, dist: 60, size: 12, dur: 420 });
     }
 
-    pop(uid, kind, text) {
+    pop(uid, kind, text, n = 0) {
       const el = this.elFor(uid);
       if (!el) return;
       const c = this.centerOf(el);
       const d = document.createElement('div');
       d.className = 'pop ' + kind;
       d.textContent = text;
-      d.style.left = c.x + 'px'; d.style.top = (kind === 'txt' ? c.y - 40 : c.y) + 'px';
+      d.style.left = c.x + 'px'; d.style.top = (kind === 'txt' ? c.y - 44 : c.y) + 'px';
+      if (kind !== 'txt') {
+        const sz = 78 + Math.min(n, 9) * 6;
+        d.style.width = d.style.height = sz + 'px'; d.style.margin = `${-sz / 2}px 0 0 ${-sz / 2}px`; d.style.fontSize = 30 + Math.min(n, 9) * 2.4 + 'px';
+      }
       this.fx.appendChild(d);
-      setTimeout(() => d.remove(), 1350);
-      if (kind === 'dmg') { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+      setTimeout(() => d.remove(), 1700);
     }
 
-    say(el, text, below) {
+    say(el, text, below, long) {
       if (!el) return;
       const c = this.centerOf(el);
       const isOpp = below ?? c.y < 450;
       const b = document.createElement('div');
-      b.className = 'bubble' + (isOpp ? ' below' : '');
+      b.className = 'bubble' + (isOpp ? ' below' : '') + (long ? ' long' : '');
       b.textContent = text;
       b.style.left = Math.max(130, Math.min(W - 130, c.x)) + 'px';
       b.style.top = (isOpp ? c.y + 74 : c.y - 74) + 'px';
       this.fx.appendChild(b);
-      setTimeout(() => b.remove(), 2250);
+      setTimeout(() => b.remove(), long ? 3400 : 2600);
     }
 
     toast(text) {
@@ -952,56 +1096,159 @@
       setTimeout(() => b.remove(), 1350);
     }
 
-    async playEvents(evs) {
-      let sounds = new Set();
-      for (const e of evs) {
-        switch (e.t) {
-          case 'missile': this.render(); await this.missile(e.from, e.to, e.kind); break;
-          case 'damage': this.pop(e.uid, 'dmg', '-' + e.n); sounds.add('hit'); break;
-          case 'heal': this.pop(e.uid, 'heal', '+' + e.n); sounds.add('heal'); break;
-          case 'shieldPop': this.pop(e.uid, 'txt', '¡Crac!'); sounds.add('shield'); break;
-          case 'freeze': this.render(); this.pop(e.uid, 'txt', '¡Congelado!'); sounds.add('freeze'); break;
-          case 'say': this.render(); this.say(this.elFor(e.uid), e.text); break;
-          case 'summon': sounds.add('summon'); break;
-          case 'death': sounds.add('death'); break;
-          case 'buff': this.render(); this.pop(e.uid, 'txt', `+${e.a}/+${e.h}`); break;
-          case 'silence': this.render(); this.pop(e.uid, 'txt', 'Soso'); break;
-          case 'transform': this.render(); await sleep(250); break;
-          case 'armor': this.pop(e.uid, 'txt', `+${e.n} armadura`); break;
-          case 'trapSet': this.render(); this.pop('hero' + e.p, 'txt', 'Trampa preparada'); sounds.add('card'); break;
-          case 'trap': this.render(); await this.revealTrap(e.cardId); break;
-          case 'bounce': sounds.add('card'); break;
-          case 'fatigue': this.pop('hero' + e.p, 'txt', '¡Nevera vacía!'); await sleep(500); break;
-          case 'burn': {
-            const el = this.deckEl(e.p);
-            const c = this.centerOf(el);
-            const b = document.createElement('div');
-            b.className = 'pop txt'; b.style.left = c.x + 'px'; b.style.top = c.y - 90 + 'px'; b.style.fontSize = '18px';
-            b.textContent = `${TW.CARDS[e.cardId].name}: ¡al suelo!`;
-            this.fx.appendChild(b); setTimeout(() => b.remove(), 1400);
-            break;
-          }
-          case 'draw': if (e.p === this.me) sounds.add('card'); break;
-          case 'weaponBreak': this.pop('hero' + e.p, 'txt', 'Utensilio roto'); break;
-          default: break;
-        }
+    snapshotShown() {
+      this.shown.clear();
+      for (const [uid, el] of this.minEls) this.shown.set(uid, { a: +el.querySelector('.m-atk span').textContent, h: +el.querySelector('.m-hp span').textContent });
+      for (const p of [0, 1]) {
+        const el = this.heroEl(p);
+        this.shown.set('hero' + p, { h: +el.querySelector('.h-hp span').textContent, arm: +el.querySelector('.h-arm span').textContent || 0 });
       }
-      this.render();
-      for (const s of sounds) TW.Sfx.play(s);
-      const turn = evs.find((e) => e.t === 'turn');
-      if (turn && !this.g.s.over) await this.turnBanner(turn.p);
-      if (evs.some((e) => e.t === 'gameOver')) { await sleep(900); this.showGameOver(); }
+    }
+    setShown(uid, o) {
+      const cur = this.shown.get(uid) || {};
+      for (const k in o) if (o[k] !== undefined) cur[k] = o[k];
+      this.shown.set(uid, cur);
     }
 
-    async turnBanner(p) {
+    /* Reproduce los eventos de una jugada paso a paso. El motor ya tiene el estado final;
+       mientras tanto la vista enseña solo lo que ya «ha ocurrido» (this.rp y this.shown). */
+    async playEvents(evs, pre) {
+      const me = this.me;
+      if (this.minEls.size || this.g.s.phase !== 'mulligan') this.snapshotShown();
+      const rp = (this.rp = { summon: new Set(), gone: new Set(), draw: new Set() });
+      for (const e of evs) {
+        if (e.t === 'summon') rp.summon.add(e.uid);
+        else if (e.t === 'death' || e.t === 'bounce') rp.gone.add(e.uid);
+        else if (e.t === 'draw') rp.draw.add(e.uid);
+      }
+      this.render();
+      const run = (i, types) => i < evs.length && types.includes(evs[i].t);
+      let i = 0, over = false;
+      try {
+        if (pre) await pre();
+        while (i < evs.length && !this.dead) {
+          const e = evs[i];
+          switch (e.t) {
+            case 'damage': case 'shieldPop': {
+              let heroHit = false;
+              while (run(i, ['damage', 'shieldPop'])) {
+                const d = evs[i++];
+                if (d.t === 'damage') { this.setShown(d.uid, { h: d.hp, arm: d.arm }); this.hitFx(d.uid, d.n); if (d.uid === 'hero' + me) heroHit = true; }
+                else { const c = this.flash(d.uid, 'buffed'); this.pop(d.uid, 'txt', '¡Crac!'); if (c) this.burst(c.x, c.y, { n: 10, color: '#ffd64d', dist: 90, size: 13 }); TW.Sfx.play('shield'); }
+              }
+              this.render();
+              TW.Sfx.play('hit');
+              if (heroHit) this.hurt();
+              await sleep(T.damage);
+              continue;
+            }
+            case 'death': {
+              while (run(i, ['death'])) rp.gone.delete(evs[i++].uid);
+              this.renderBoards();
+              TW.Sfx.play('death');
+              await sleep(T.death);
+              continue;
+            }
+            case 'summon': {
+              while (run(i, ['summon'])) {
+                const d = evs[i++];
+                rp.summon.delete(d.uid);
+                this.shown.set(d.uid, { a: d.a, h: d.h });
+                if (!this.ent(d.uid)) this.ghostMinion(d);
+              }
+              this.render();
+              TW.Sfx.play('summon');
+              await sleep(T.summon);
+              continue;
+            }
+            case 'heal': {
+              while (run(i, ['heal'])) { const d = evs[i++]; this.setShown(d.uid, { h: d.hp }); this.healFx(d.uid, d.n); }
+              this.render();
+              TW.Sfx.play('heal');
+              await sleep(T.heal);
+              continue;
+            }
+            case 'buff': {
+              while (run(i, ['buff'])) { const d = evs[i++]; this.setShown(d.uid, { a: d.ta, h: d.th }); this.buffFx(d.uid, `+${d.a}/+${d.h}`); }
+              this.render();
+              TW.Sfx.play('pop');
+              await sleep(T.buff);
+              continue;
+            }
+            case 'freeze': {
+              while (run(i, ['freeze'])) { const d = evs[i++]; const c = this.flash(d.uid, 'healed'); this.pop(d.uid, 'txt', '¡Congelado!'); if (c) this.burst(c.x, c.y, { n: 9, color: '#bfe8fb', dist: 70, size: 13 }); }
+              this.render();
+              TW.Sfx.play('freeze');
+              await sleep(T.small);
+              continue;
+            }
+            case 'draw':
+              rp.draw.delete(e.uid);
+              if (e.p === me) { this.renderHand(); TW.Sfx.play('card'); await sleep(T.draw); }
+              else { this.renderOppHand(); await sleep(T.drawOpp); }
+              break;
+            case 'bounce': {
+              rp.gone.delete(e.uid);
+              const el = this.minEls.get(e.uid);
+              if (el) el.dataset.bounce = '1';
+              this.renderBoards();
+              TW.Sfx.play('card');
+              await sleep(T.small);
+              break;
+            }
+            case 'missile': this.render(); await this.missile(e.from, e.to, e.kind); break;
+            case 'say': this.render(); this.say(this.elFor(e.uid), e.text); await sleep(T.say); break;
+            case 'silence': this.setShown(e.uid, { a: e.ta, h: e.th }); this.render(); this.pop(e.uid, 'txt', 'Soso'); await sleep(T.small); break;
+            case 'transform': {
+              this.setShown(e.uid, { a: e.ta, h: e.th });
+              const el = this.elFor(e.uid);
+              if (el) { const c = this.centerOf(el); this.burst(c.x, c.y, { n: 12, color: '#d5cfe0', dist: 90, size: 26, grow: 1.4, dur: 600 }); }
+              this.render();
+              TW.Sfx.play('summon');
+              await sleep(T.summon);
+              break;
+            }
+            case 'armor': this.setShown(e.uid, { arm: e.arm }); this.render(); this.pop(e.uid, 'txt', `+${e.n} armadura`); await sleep(T.small); break;
+            case 'fatigue': this.pop('hero' + e.p, 'txt', '¡Nevera vacía!'); await sleep(T.small); break;
+            case 'burn': {
+              const c = this.centerOf(this.deckEl(e.p));
+              const b = document.createElement('div');
+              b.className = 'pop txt'; b.style.left = c.x + 'px'; b.style.top = c.y - 90 + 'px'; b.style.fontSize = '18px';
+              b.textContent = `${TW.CARDS[e.cardId].name}: ¡al suelo!`;
+              this.fx.appendChild(b); setTimeout(() => b.remove(), 1700);
+              await sleep(T.small);
+              break;
+            }
+            case 'weapon': this.render(); await sleep(T.small); break;
+            case 'weaponBreak': this.pop('hero' + e.p, 'txt', 'Utensilio roto'); break;
+            case 'trapSet': this.render(); this.pop('hero' + e.p, 'txt', 'Trampa preparada'); TW.Sfx.play('card'); await sleep(T.small); break;
+            case 'trap': this.render(); await this.revealTrap(e.cardId); break;
+            case 'ferment': if (e.p === me) this.renderHand(); break;
+            case 'thaw': this.render(); break;
+            case 'turn': this.render(); if (!this.g.s.over) await this.band(e.p === me ? 'Tu turno' : `Turno de ${this.g.player(e.p).name}`, e.p === me ? '' : 'opp', e.p === me ? T.bannerMine : T.bannerOpp, e.p === me ? 'turn' : 'oppTurn'); break;
+            case 'gameOver': over = true; break;
+            default: break;
+          }
+          i++;
+        }
+      } finally {
+        this.rp = null;
+        this.shown.clear();
+      }
+      if (this.dead) return;
+      this.render();
+      if (over) { await sleep(1200); this.showGameOver(); }
+    }
+
+    async band(text, cls, ms, sfx) {
       const b = document.createElement('div');
-      const mine = p === this.me;
-      b.className = 'banner' + (mine ? '' : ' opp');
-      b.textContent = mine ? 'Tu turno' : `Turno de ${this.g.player(p).name}`;
+      b.className = 'turn-band ' + (cls || '');
+      b.innerHTML = `<span>${TW.esc(text)}</span>`;
+      b.style.animationDuration = b.firstChild.style.animationDuration = (ms + 350) * (TW.speed || 1) + 'ms';
       this.fx.appendChild(b);
-      TW.Sfx.play(mine ? 'turn' : 'oppTurn');
-      setTimeout(() => b.remove(), 1450);
-      await sleep(mine ? 700 : 450);
+      if (sfx) TW.Sfx.play(sfx);
+      setTimeout(() => b.remove(), (ms + 400) * (TW.speed || 1));
+      await sleep(ms);
     }
 
     /* ---------- vistas previas ---------- */
@@ -1018,12 +1265,14 @@
     }
     hidePreview() { this.previewEl.classList.remove('on'); clearTimeout(this.pvT); }
     previewCard(cardId, el, o = {}) {
+      if (this.busy) return;
       clearTimeout(this.pvT);
       this.pvT = setTimeout(() => {
         this.showPreviewAt(`${TW.cardHTML(cardId, o)}<div class="notes-col">${TW.notesHTML(cardId)}</div>`, el);
       }, 180);
     }
     previewMinion(uid, el) {
+      if (this.busy) return;
       const m = this.ent(uid);
       if (!m) return;
       const extra = [];
@@ -1039,6 +1288,7 @@
       }, 220);
     }
     previewPower(p, el) {
+      if (this.busy) return;
       clearTimeout(this.pvT);
       this.pvT = setTimeout(() => this.showPreviewAt(TW.powerNoteHTML(this.g.player(p).heroId), el), 150);
     }
@@ -1123,17 +1373,21 @@
       if (this.myMull === null || this.oppMull === null || this.g.s.phase !== 'mulligan') return;
       const mine = this.myMull, theirs = this.oppMull;
       for (const p of [0, 1]) this.applyLogged({ type: 'mulligan', p, uids: p === this.me ? mine : theirs });
-      this.closeOverlay();
       const evs = this.g.flush();
       this.busy = true;
       try {
-        this.render();
-        await sleep(500);
-        this.say(this.heroEl(this.opp), TW.HEROES[this.g.player(this.opp).heroId].hello);
-        await sleep(600);
-        this.say(this.heroEl(this.me), TW.HEROES[this.g.player(this.me).heroId].hello);
-        await sleep(700);
-        await this.playEvents(evs);
+        // Arranque pausado: saludo de cada héroe, cartel y solo entonces empieza el primer turno
+        await this.playEvents(evs, async () => {
+          this.closeOverlay();
+          this.render();
+          await sleep(T.introPause);
+          this.say(this.heroEl(this.opp), TW.HEROES[this.g.player(this.opp).heroId].hello, undefined, true);
+          await sleep(T.introLine);
+          this.say(this.heroEl(this.me), TW.HEROES[this.g.player(this.me).heroId].hello, undefined, true);
+          await sleep(T.introLine);
+          await this.band('¡A comer!', 'start', 1500, 'turn');
+          await sleep(300);
+        });
       } finally { this.busy = false; this.render(); this.after(); }
     }
 
@@ -1169,6 +1423,7 @@
         <button class="btn mint" data-m="back">Seguir jugando</button>
         <button class="btn white" data-m="help">Cómo se juega</button>
         <button class="btn white" data-m="sound">Sonido: ${TW.Sfx.enabled ? 'activado' : 'desactivado'}</button>
+        <button class="btn white" data-m="speed">Animaciones: ${TW.speedName ? TW.speedName() : 'normales'}</button>
         ${this.g.s.over ? '' : `<button class="btn red" data-m="concede">Rendirse</button>`}
         <button class="btn white" data-m="exit">${online ? 'Salir de la sala' : 'Salir al menú'}</button></div>`, 'menu');
       o.addEventListener('click', (e) => {
@@ -1178,6 +1433,7 @@
         if (m === 'back') { this.closeOverlay(); this.render(); this.after(); }
         if (m === 'help') TW.showHelp();
         if (m === 'sound') { TW.Sfx.setEnabled(!TW.Sfx.enabled); TW.saveSettings && TW.saveSettings({ sound: TW.Sfx.enabled }); b.textContent = `Sonido: ${TW.Sfx.enabled ? 'activado' : 'desactivado'}`; this.updateSoundBtn(); }
+        if (m === 'speed' && TW.toggleSpeed) { TW.toggleSpeed(); b.textContent = `Animaciones: ${TW.speedName()}`; }
         if (m === 'concede') { this.closeOverlay(); this.concede(); }
         if (m === 'exit') {
           if (!this.g.s.over && online) this.concede(true);

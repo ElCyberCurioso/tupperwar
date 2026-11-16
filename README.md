@@ -50,6 +50,16 @@ Palabras clave: Estorbo (provocar), Cáscara (escudo divino), Caducado (veneno),
 - **Fermenta**: la carta gana +1/+1 cada turno que pasa en tu mano, hasta +3/+3.
 - **Trampas**: trucos ocultos junto a tu héroe que saltan solos en el turno del rival. Máximo 3 y todas distintas.
 
+### Mecánicas de combate (versión 1.2)
+
+- **Con hambre**: puede atacar a esbirros el turno en que sale (a héroes, desde el siguiente).
+- **A distancia**: no recibe el daño de vuelta cuando ataca.
+- **Arrollar**: el daño que sobra al matar un esbirro se lo lleva el héroe rival.
+- **Salpicón**: al atacar también daña a los vecinos del objetivo.
+- **Cabreo**: efecto que se activa cada vez que el esbirro sobrevive a un golpe.
+
+La velocidad de las animaciones se cambia en el menú principal o en la pausa (normales o rápidas).
+
 El análisis del proyecto y el plan de mejora están en [ROADMAP.md](ROADMAP.md).
 
 Hay 4 héroes con poder propio (2 calorías): Abuela Puri cura, Toni hace 1 de daño, Chef Gastón invoca un Microbrote 1/1 y Michi gana ataque y armadura.

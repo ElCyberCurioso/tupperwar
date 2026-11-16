@@ -8,7 +8,7 @@
   const MAX_HAND = 10, MAX_BOARD = 7, MAX_MANA = 10, START_HP = 30, FERMENT_MAX = 3, MAX_TRAPS = 3;
   TW.RULES = { MAX_HAND, MAX_BOARD, MAX_MANA, START_HP, DECK_SIZE: 30 };
 
-  const KW = ['taunt', 'divineShield', 'poisonous', 'charge', 'windfury', 'stealth', 'lifesteal'];
+  const KW = ['taunt', 'divineShield', 'poisonous', 'charge', 'windfury', 'stealth', 'lifesteal', 'rush', 'cleave', 'trample', 'ranged'];
 
   class Game {
     /* opts: { seed, heroes:[id,id], decks:[[ids],[ids]], first?:0|1, ai?:[bool,bool], names?:[str,str] } */
@@ -258,7 +258,7 @@
         m.uid = 'm' + card.uid; // mantiene el vínculo visual carta → esbirro
         if (card.bonus) { m.attack += card.bonus; m.health += card.bonus; m.maxHealth += card.bonus; }
         pl.board.splice(pos, 0, m);
-        this.emit({ t: 'summon', p, uid: m.uid, fromHand: true });
+        this.emit({ t: 'summon', p, uid: m.uid, cardId: m.cardId, a: m.attack, h: m.health, fromHand: true });
         if (d.quote) this.say(m, d.quote);
         const ctx = { p, self: m, target, choice: o.choice, pos, combo };
         if (d.battlecry) d.battlecry.run(this, ctx);
@@ -315,7 +315,7 @@
       if (!e || !this.canAct(e.owner) || !this.alive(e)) return false;
       if (e.frozen || this.attackValue(e) <= 0) return false;
       if (e.kind === 'minion') {
-        if (e.sleeping && !e.charge) return false;
+        if (e.sleeping && !e.charge && !e.rush) return false;
         return e.attacksThisTurn < (e.windfury ? 2 : 1);
       }
       return e.attacksThisTurn < 1;
@@ -325,7 +325,10 @@
       const op = 1 - e.owner;
       const cands = this.chars(op).filter((x) => this.alive(x) && !(x.kind === 'minion' && x.stealth));
       const taunts = cands.filter((x) => x.kind === 'minion' && x.taunt);
-      return taunts.length ? taunts : cands;
+      const list = taunts.length ? taunts : cands;
+      // Con hambre: el turno en que sale solo puede atacar a esbirros
+      if (e.kind === 'minion' && e.sleeping && !e.charge) return list.filter((x) => x.kind === 'minion');
+      return list;
     }
 
     attack(p, aUid, tUid) {
@@ -340,9 +343,17 @@
         this.resolveDeaths();
         return true;
       }
+      if (t.kind === 'minion' && a.kind === 'minion' && this.triggerTrap(t.owner, 'attackMinion', { target: a })) {
+        this.resolveDeaths();
+        if (this.s.over || !this.board(p).includes(a) || !this.board(t.owner).includes(t)) return true;
+      }
       const ad = this.attackValue(a);
-      const dd = t.kind === 'minion' ? t.attack : 0;
+      const dd = t.kind === 'minion' && !(a.kind === 'minion' && a.ranged) ? t.attack : 0;
+      const sides = a.kind === 'minion' && a.cleave && t.kind === 'minion' ? this.neighbors(t) : [];
+      const before = t.health, shielded = t.kind === 'minion' && t.divineShield;
       this.damage(a, t, ad);
+      for (const m of sides) this.damage(a, m, ad); // Salpicón
+      if (a.kind === 'minion' && a.trample && t.kind === 'minion' && !shielded && ad > before) this.damage(a, this.hero(1 - p), ad - before); // Arrollar
       if (dd > 0) this.damage(t, a, dd);
       if (a.kind === 'hero') {
         const w = this.player(p).weapon;
@@ -441,13 +452,15 @@
           return 0;
         }
         t.health -= n;
-        this.emit({ t: 'damage', uid: t.uid, n, src: src && src.uid });
         if (src && src.kind === 'minion' && src.poisonous) t.destroyed = true;
+        this.emit({ t: 'damage', uid: t.uid, n, src: src && src.uid, hp: t.health });
+        const td = this.def(t.cardId);
+        if (td.onDamaged && t.health > 0 && !t.destroyed && !t.silenced) td.onDamaged(this, { p: t.owner, self: t }); // Cabreo
       } else {
         let rest = n;
         if (t.armor > 0) { const a = Math.min(t.armor, rest); t.armor -= a; rest -= a; }
         t.health -= rest;
-        this.emit({ t: 'damage', uid: t.uid, n, src: src && src.uid });
+        this.emit({ t: 'damage', uid: t.uid, n, src: src && src.uid, hp: t.health, arm: t.armor });
       }
       if (this.isLifesteal(src)) this.heal(src, this.hero(src.owner), n);
       return n;
@@ -458,7 +471,7 @@
       const a = Math.min(n, t.maxHealth - t.health);
       if (a <= 0) return 0;
       t.health += a;
-      this.emit({ t: 'heal', uid: t.uid, n: a });
+      this.emit({ t: 'heal', uid: t.uid, n: a, hp: t.health });
       return a;
     }
 
@@ -472,7 +485,7 @@
     buff(m, a, h) {
       if (!m || !this.alive(m)) return;
       m.attack += a; m.maxHealth += h; m.health += h;
-      this.emit({ t: 'buff', uid: m.uid, a, h });
+      this.emit({ t: 'buff', uid: m.uid, a, h, ta: m.attack, th: m.health });
     }
 
     destroy(m) { if (m && m.kind === 'minion') m.destroyed = true; }
@@ -483,7 +496,7 @@
       m.silenced = true; m.frozen = false;
       m.attack = m.baseAttack; m.maxHealth = m.baseHealth;
       m.health = Math.min(m.health, m.maxHealth);
-      this.emit({ t: 'silence', uid: m.uid });
+      this.emit({ t: 'silence', uid: m.uid, ta: m.attack, th: m.health });
     }
 
     bounce(m) {
@@ -502,7 +515,7 @@
       m.health = m.maxHealth = m.baseHealth = d.health;
       for (const k of KW) m[k] = !!(d.keywords && d.keywords.includes(k));
       m.silenced = false; m.frozen = false; m.destroyed = false;
-      this.emit({ t: 'transform', uid: m.uid, cardId: id });
+      this.emit({ t: 'transform', uid: m.uid, cardId: id, ta: m.attack, th: m.health });
     }
 
     summon(p, id, pos) {
@@ -510,7 +523,7 @@
       if (b.length >= MAX_BOARD) return null;
       const m = this.createMinion(p, id);
       b.splice(Math.max(0, Math.min(pos ?? b.length, b.length)), 0, m);
-      this.emit({ t: 'summon', p, uid: m.uid });
+      this.emit({ t: 'summon', p, uid: m.uid, cardId: m.cardId, a: m.attack, h: m.health });
       return m;
     }
 
@@ -541,7 +554,12 @@
       return c;
     }
 
-    gainArmor(p, n) { this.hero(p).armor += n; this.emit({ t: 'armor', uid: 'hero' + p, n }); }
+    gainArmor(p, n) { this.hero(p).armor += n; this.emit({ t: 'armor', uid: 'hero' + p, n, arm: this.hero(p).armor }); }
+    fermentHand(p) {
+      for (const c of this.player(p).hand) {
+        if (this.def(c.cardId).ferment && (c.bonus || 0) < FERMENT_MAX) { c.bonus = (c.bonus || 0) + 1; this.emit({ t: 'ferment', p, uid: c.uid }); }
+      }
+    }
     say(e, text) { if (e) this.emit({ t: 'say', uid: e.uid, text }); }
     missile(from, to, kind = 'bolita') { this.emit({ t: 'missile', from: from && from.uid, to: to && to.uid, kind }); }
 

@@ -19,6 +19,11 @@
     discover: { name: 'Descubre', desc: 'Elige una de tres cartas al azar y añádela a tu mano.' },
     chooseOne: { name: 'Elige una', desc: 'Al jugarla, eliges uno de dos efectos.' },
     endOfTurn: { name: 'Al final de tu turno', desc: 'Se activa cada vez que terminas tu turno.' },
+    rush: { name: 'Con hambre', desc: 'Puede atacar a esbirros el mismo turno en que sale. A héroes, desde el siguiente.' },
+    ranged: { name: 'A distancia', desc: 'Cuando ataca no recibe el daño de vuelta.' },
+    trample: { name: 'Arrollar', desc: 'Si al atacar a un esbirro sobra daño, el resto se lo lleva el héroe rival.' },
+    cleave: { name: 'Salpicón', desc: 'Al atacar a un esbirro también daña a los vecinos del objetivo.' },
+    enrage: { name: 'Cabreo', desc: 'Se activa cada vez que recibe daño y sobrevive.' },
     garnish: { name: 'Guarnición', desc: 'Se activa si ya has jugado otra carta este mismo turno.' },
     ferment: { name: 'Fermenta', desc: 'Mientras está en tu mano gana +1/+1 al empezar cada turno tuyo (máximo +3/+3).' },
     neighbors: { name: 'Vecinos', desc: 'Los esbirros situados justo a su izquierda y a su derecha. La posición en la balda importa.' },
@@ -94,16 +99,16 @@
       } } },
 
     { id: 'croqueta', name: 'Croqueta de la Abuela', type: 'minion', cost: 3, attack: 3, health: 3, rarity: 'comun',
-      kw: ['battlecry'], text: '**Al sacarlo:** restaura 3 de salud a tu héroe.',
+      kw: ['battlecry'], text: '**Al sacarlo:** restaura 4 de salud a tu héroe.',
       flavor: 'Nadie sabe qué lleva dentro. La abuela tampoco.', quote: '¡Hecha con amor y sobras!',
-      battlecry: { run: (g, c) => g.heal(c.self, g.hero(c.p), 3) } },
+      battlecry: { run: (g, c) => g.heal(c.self, g.hero(c.p), 4) } },
 
     { id: 'cebolla', name: 'Cebolla Llorona', type: 'minion', cost: 3, attack: 2, health: 3, rarity: 'rara',
       kw: ['battlecry'], text: '**Al sacarlo:** inflige 1 de daño a todos los esbirros enemigos.',
       flavor: 'No está triste. Eres tú el que llora.', quote: '¡Buaaaaaa!',
       battlecry: { run: (g, c) => { for (const m of [...g.enemyMinions(c.p)]) g.damage(c.self, m, 1); } } },
 
-    { id: 'queso', name: 'Queso Apestoso', type: 'minion', cost: 3, attack: 2, health: 4, rarity: 'rara',
+    { id: 'queso', name: 'Queso Apestoso', type: 'minion', cost: 3, attack: 2, health: 3, rarity: 'rara',
       kw: ['endOfTurn'], text: '**Al final de tu turno,** inflige 1 de daño a un esbirro enemigo aleatorio.',
       flavor: 'Su olor tiene código postal propio.', quote: '¿Qué pasa? Es mi perfume.',
       endOfTurn: (g, c) => { const t = enemyMinionRandom(g, c.p); if (t) { g.missile(c.self, t, 'peste'); g.damage(c.self, t, 1); } } },
@@ -117,10 +122,10 @@
       text: '', flavor: 'Orgullo de la Plaza Mayor. Ni de mar ni de tierra: de Madrid.', quote: '¡Que no lleva mayonesa, hombre!' },
 
     { id: 'tupper', name: 'Tupper Misterioso', type: 'minion', cost: 3, attack: 3, health: 3, rarity: 'epica',
-      kw: ['battlecry'], text: '**Al sacarlo:** ¡ábrelo! Se transforma en un esbirro aleatorio que cueste de 1 a 6.',
+      kw: ['battlecry'], text: '**Al sacarlo:** ¡ábrelo! Se transforma en un esbirro aleatorio que cueste de 2 a 7.',
       flavor: 'Nadie se atreve a abrirlo desde 2021.', quote: 'Ñiiiic...',
       battlecry: { run: (g, c) => {
-        const pool = g.collectible((d) => d.type === 'minion' && d.cost >= 1 && d.cost <= 6 && d.id !== 'tupper');
+        const pool = g.collectible((d) => d.type === 'minion' && d.cost >= 2 && d.cost <= 7 && d.id !== 'tupper');
         const id = g.pick(pool);
         g.transform(c.self, id);
         g.say(c.self, '¡Sorpresa!');
@@ -204,7 +209,7 @@
         g.damage(c.self, g.hero(c.p), 3); g.damage(c.self, g.hero(1 - c.p), 3);
       } } },
 
-    { id: 'primigenio', name: 'El Yogur Primigenio', type: 'minion', cost: 10, attack: 10, health: 10, rarity: 'legendaria',
+    { id: 'primigenio', name: 'El Yogur Primigenio', type: 'minion', cost: 10, attack: 8, health: 8, rarity: 'legendaria',
       kw: ['battlecry'], text: '**Al sacarlo:** destruye a todos los demás esbirros.',
       flavor: 'El primer yogur que entró en esta nevera. Dentro hay una civilización.', quote: 'Postraos ante mí.',
       battlecry: { run: (g, c) => { for (const m of g.allMinions()) if (m !== c.self) g.destroy(m); } } },
@@ -288,7 +293,7 @@
       kw: ['ferment'], text: '**Fermenta**',
       flavor: 'Te lo regaló un compañero de yoga. Sigue vivo. El kéfir.', quote: 'Blub.' },
 
-    { id: 'quesocurado', name: 'Queso Curado', type: 'minion', cost: 4, attack: 3, health: 4, rarity: 'rara', ferment: true,
+    { id: 'quesocurado', name: 'Queso Curado', type: 'minion', cost: 4, attack: 3, health: 3, rarity: 'rara', ferment: true,
       keywords: ['taunt'], kw: ['taunt', 'ferment'], text: '**Estorbo.** **Fermenta**',
       flavor: 'Cuanto más viejo, más caro. Como los pisos.', quote: 'Yo ya estaba aquí antes que tú.' },
 
@@ -304,7 +309,7 @@
         if (fams.size) g.buff(c.self, fams.size, fams.size);
       } } },
 
-    { id: 'mantequilla', name: 'Mantequilla Derretida', type: 'minion', cost: 2, attack: 1, health: 3, rarity: 'rara',
+    { id: 'mantequilla', name: 'Mantequilla Derretida', type: 'minion', cost: 2, attack: 1, health: 2, rarity: 'rara',
       kw: ['endOfTurn', 'neighbors'], text: '**Al final de tu turno,** otorga +1 de ataque a sus **vecinos**.',
       flavor: 'Alguien la dejó fuera de la nevera. Ahora es de todos.', quote: 'Me derrito por vosotros.',
       endOfTurn: (g, c) => { for (const m of g.neighbors(c.self)) g.buff(m, 1, 0); } },
@@ -319,7 +324,7 @@
       flavor: 'Solo iba a coger una.', quote: '¿Con qué vengo hoy?',
       battlecry: { run: (g, c) => { if (c.combo) { c.self.charge = true; g.buff(c.self, 1, 1); } } } },
 
-    { id: 'alioli', name: 'Alioli Casero', type: 'minion', cost: 1, attack: 1, health: 1, rarity: 'comun', garnish: true,
+    { id: 'alioli', name: 'Alioli Casero', type: 'minion', cost: 1, attack: 1, health: 2, rarity: 'comun', garnish: true,
       kw: ['garnish'], text: '**Guarnición:** roba una carta.',
       flavor: 'Se cortó tres veces. A la cuarta, de bote.', quote: '¡Dale al mortero!',
       battlecry: { run: (g, c) => { if (c.combo) g.draw(c.p); } } },
@@ -370,6 +375,71 @@
       flavor: 'Parecía guacamole.',
       trap: { on: 'minion', run: (g, c) => g.damage(g.spellSrc(c.p), c.target, 3) } },
 
+    /* ===================== EXPANSIÓN 1.2: COMBATE ===================== */
+    { id: 'gamba', name: 'Gamba Saltarina', type: 'minion', cost: 1, attack: 2, health: 1, rarity: 'comun',
+      keywords: ['rush'], kw: ['rush'], text: '**Con hambre**',
+      flavor: 'Saltó de la plancha. Nadie la ha vuelto a coger.', quote: '¡Boing!' },
+
+    { id: 'zanahoria', name: 'Zanahoria Francotiradora', type: 'minion', cost: 2, attack: 2, health: 1, rarity: 'rara',
+      keywords: ['ranged'], kw: ['ranged'], text: '**A distancia**',
+      flavor: 'Ve en la oscuridad. Eso dicen de las zanahorias.', quote: 'Objetivo localizado.' },
+
+    { id: 'pollo', name: 'Pollo Asado Furioso', type: 'minion', cost: 3, attack: 2, health: 5, rarity: 'rara',
+      kw: ['enrage'], text: '**Cabreo:** gana +2 de ataque.',
+      flavor: 'Tres horas dando vueltas. Tú también estarías así.', quote: '¡¿Quién ha sido?!',
+      onDamaged: (g, c) => g.buff(c.self, 2, 0) },
+
+    { id: 'bravas', name: 'Tapa de Bravas', type: 'minion', cost: 3, attack: 3, health: 3, rarity: 'comun', garnish: true,
+      kw: ['garnish'], text: '**Guarnición:** inflige 2 de daño a un enemigo aleatorio.',
+      flavor: 'Tres patatas y medio litro de salsa.', quote: '¡Una de bravas!',
+      battlecry: { run: (g, c) => { if (!c.combo) return; const t = enemyRandom(g, c.p); if (t) { g.missile(c.self, t, 'fuego'); g.damage(c.self, t, 2); } } } },
+
+    { id: 'yogurtera', name: 'Yogurtera de los 80', type: 'minion', cost: 3, attack: 2, health: 4, rarity: 'rara',
+      kw: ['battlecry', 'ferment'], text: '**Al sacarlo:** las cartas con **Fermenta** de tu mano fermentan una vez más.',
+      flavor: 'Regalo de boda de tus padres. Funciona mejor que tu móvil.', quote: 'Brrrrrrr.',
+      battlecry: { run: (g, c) => g.fermentHand(c.p) } },
+
+    { id: 'fiambrera', name: 'Fiambrera de Acero', type: 'minion', cost: 3, attack: 2, health: 4, rarity: 'rara',
+      kw: ['battlecry', 'trap', 'taunt', 'divineShield'], text: '**Al sacarlo:** si tienes una **Trampa** preparada, gana **Estorbo** y **Cáscara**.',
+      flavor: 'Sobrevivió a la mili de tu abuelo.', quote: 'Clonc.',
+      battlecry: { run: (g, c) => { if (g.player(c.p).traps.length) { c.self.taunt = true; c.self.divineShield = true; g.say(c.self, '¡A cubierto!'); } } } },
+
+    { id: 'helado', name: 'Helado de Tres Bolas', type: 'minion', cost: 4, attack: 3, health: 3, rarity: 'rara',
+      kw: ['battlecry', 'freeze', 'neighbors'], text: '**Al sacarlo:** congela a un esbirro enemigo y a sus **vecinos**.',
+      flavor: 'Fresa, vainilla y menta. La de menta no la quiere nadie.', quote: '¡Cerebro congelado!',
+      battlecry: { target: 'enemyMinion', run: (g, c) => { if (!c.target) return; const ns = g.neighbors(c.target); g.freeze(c.target); for (const m of ns) g.freeze(m); } } },
+
+    { id: 'calabaza', name: 'Calabaza Rodante', type: 'minion', cost: 5, attack: 5, health: 4, rarity: 'rara',
+      keywords: ['trample'], kw: ['trample'], text: '**Arrollar**',
+      flavor: 'Cuesta abajo y sin frenos desde octubre.', quote: '¡Paso, que voy!' },
+
+    { id: 'costillar', name: 'Costillar a la Brasa', type: 'minion', cost: 6, attack: 4, health: 6, rarity: 'epica',
+      keywords: ['cleave'], kw: ['cleave'], text: '**Salpicón**',
+      flavor: 'Imposible comérselo sin mancharse. Ni atacar sin salpicar.', quote: '¡Para todos hay!' },
+
+    { id: 'chuleton', name: 'Chuletón de Ávila', type: 'minion', cost: 7, attack: 6, health: 6, rarity: 'legendaria',
+      keywords: ['rush', 'trample'], kw: ['rush', 'trample'], text: '**Con hambre.** **Arrollar**',
+      flavor: 'Un kilo doscientos. Poco hecho. Muy enfadado.', quote: '¡MUUU!' },
+
+    { id: 'romperhielo', name: 'Romper el Hielo', type: 'spell', cost: 2, rarity: 'comun', kw: ['freeze'],
+      text: 'Inflige 2 de daño a un esbirro. Si está **congelado**, lo destruye.',
+      flavor: '«Bueno, ¿y tú de qué balda eres?»',
+      spell: { target: 'minion', run: (g, c) => { if (c.target.frozen) g.destroy(c.target); else g.damage(g.spellSrc(c.p), c.target, 2); } } },
+
+    { id: 'recalentar', name: 'Recalentar en la Sartén', type: 'spell', cost: 2, rarity: 'comun', kw: ['deathrattle'],
+      text: 'Activa el **Último bocado** de un esbirro aliado. Roba una carta.',
+      flavor: 'En el microondas no queda igual. Lo sabes.',
+      spell: { target: 'friendlyMinion', run: (g, c) => {
+        const d = g.def(c.target.cardId);
+        if (d.deathrattle && !c.target.silenced) d.deathrattle(g, { p: c.p, self: c.target, pos: g.board(c.p).indexOf(c.target) + 1 });
+        g.draw(c.p);
+      } } },
+
+    { id: 'fregado', name: 'Suelo Recién Fregado', type: 'spell', cost: 2, rarity: 'rara', kw: ['trap'],
+      text: '**Trampa:** cuando un esbirro enemigo ataque a uno de los tuyos, resbala y recibe 3 de daño antes de golpear.',
+      flavor: '«¡QUE ESTÁ FREGADO!»',
+      trap: { on: 'attackMinion', run: (g, c) => g.damage(g.spellSrc(c.p), c.target, 3) } },
+
     /* ===================== UTENSILIOS (armas) ===================== */
     { id: 'tenedor', name: 'Tenedor de Plástico', type: 'weapon', cost: 1, attack: 1, durability: 3, rarity: 'comun',
       text: '', flavor: 'Se dobla, pero no se rompe. Bueno, sí se rompe.' },
@@ -404,10 +474,10 @@
     guiso: { name: 'Guiso', color: '#d98a2b' },
   };
   const FAM = {
-    verdura: ['guisante', 'ajo', 'limon', 'kiwi', 'maiz', 'pimiento', 'cebolla', 'berenjena', 'coliflor', 'sandia', 'aceituna', 'guisantes', 'microbrote', 'brocoli'],
-    chicha: ['salchicha', 'chorizo', 'jamon', 'pavo', 'pulpo', 'sobra', 'bocata', 'albondiga', 'morcilla'],
-    lacteo: ['yogur', 'queso', 'natillas', 'primigenio', 'huevo', 'tarta', 'leche', 'kefir', 'quesocurado', 'mantequilla'],
-    guiso: ['croqueta', 'tortilla', 'paella', 'lentejas', 'fabada', 'lasana', 'taperlentejas', 'pizza', 'porcion', 'tupper', 'cocido', 'nachos'],
+    verdura: ['zanahoria', 'calabaza', 'guisante', 'ajo', 'limon', 'kiwi', 'maiz', 'pimiento', 'cebolla', 'berenjena', 'coliflor', 'sandia', 'aceituna', 'guisantes', 'microbrote', 'brocoli'],
+    chicha: ['gamba', 'pollo', 'costillar', 'chuleton', 'salchicha', 'chorizo', 'jamon', 'pavo', 'pulpo', 'sobra', 'bocata', 'albondiga', 'morcilla'],
+    lacteo: ['yogurtera', 'helado', 'yogur', 'queso', 'natillas', 'primigenio', 'huevo', 'tarta', 'leche', 'kefir', 'quesocurado', 'mantequilla'],
+    guiso: ['fiambrera', 'bravas', 'croqueta', 'tortilla', 'paella', 'lentejas', 'fabada', 'lasana', 'taperlentejas', 'pizza', 'porcion', 'tupper', 'cocido', 'nachos'],
   };
   for (const c of L) if (c.trap && !c.spell) c.spell = {};
   for (const [fam, ids] of Object.entries(FAM)) for (const id of ids) L.find((c) => c.id === id).fam = fam;
@@ -420,8 +490,8 @@
     abuela: {
       id: 'abuela', name: 'Abuela Puri', title: 'Cocina para veinte aunque seáis dos',
       hello: '¿Has comido? Te veo más delgado.', win: 'Toma, llévate un táper.', lose: 'Bueno, pero cena algo.',
-      power: { name: '¡Pero come algo!', cost: 2, target: 'any', text: 'Restaura 2 de salud.',
-        run: (g, c) => g.heal(c.self, c.target, 2) },
+      power: { name: '¡Pero come algo!', cost: 2, target: 'any', text: 'Restaura 3 de salud.',
+        run: (g, c) => g.heal(c.self, c.target, 3) },
     },
     toni: {
       id: 'toni', name: 'Toni', title: 'El compañero de piso',

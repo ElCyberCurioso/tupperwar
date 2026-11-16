@@ -116,7 +116,7 @@
 
   TW.Net = {
     PREFIX,
-    VERSION: '1.1.0',
+    VERSION: '1.2.0',
     isLocal: local,
     makeCode() {
       let s = '';

@@ -1,6 +1,6 @@
 # Tupperwar: análisis del proyecto y plan de mejora
 
-Estado a 16 de noviembre de 2026, versión 1.1.
+Estado a 16 de noviembre de 2026, versión 1.2.
 
 ## 1. Análisis
 
@@ -27,7 +27,7 @@ Estado a 16 de noviembre de 2026, versión 1.1.
 ### Debilidades técnicas
 
 - **IA de un solo paso.** Evalúa cada acción por separado y no planifica el turno completo ni el siguiente del rival. No valora bien las trampas propias ni guarda las cartas que fermentan.
-- **Equilibrio sin afinar.** En 200 partidas de IA contra IA tras la 1.1: gana quien empieza el 52 %, duración media de 21,6 turnos, y por héroe Toni 61 %, Michi 55 %, Chef 45 %, Abuela 39 % (margen de unos ±7 puntos con esa muestra). Abuela y Toni necesitan ajuste. Las cartas más flojas en manos de la IA son las reactivas (Cáscara de Plátano, Siesta, Caldito), en parte porque la IA no sabe usarlas.
+- **Equilibrio a medio afinar.** En 500 partidas de IA contra IA tras la 1.2: gana quien empieza el 58 % (margen de unos ±4 puntos), duración media de 22,4 turnos, y por héroe Michi 56 %, Toni 51 %, Abuela 49 %, Chef 44 %. Casi todas las cartas con muestra suficiente quedan entre el 36 % y el 62 % de victorias cuando se juegan; la excepción es El Yogur Primigenio (72 %), que la IA solo baja cuando ya va ganando. La ventaja de salir primero y el Chef son lo siguiente a vigilar. Las cartas más flojas en manos de la IA son las reactivas (trampas, Siesta, Vuelta al Táper), en parte porque no sabe usarlas.
 - **Información oculta en online.** Cada navegador calcula la partida entera, así que mano, mazo y trampas del rival son visibles desde las herramientas de desarrollo. Aceptable entre amigos, no para juego competitivo.
 - **Dependencia del servidor público de PeerJS** para el emparejamiento, y sin servidor TURN propio para redes restrictivas. El online todavía no se ha probado desplegado en GitHub Pages con ese servidor público, solo con uno local.
 - **Pruebas fuera del repositorio.** Los simuladores y las pruebas de interfaz que se usaron durante el desarrollo no están versionados ni automatizados.
@@ -45,6 +45,14 @@ Cinco sistemas pensados para que haya decisiones distintas en cada partida. Son 
 5. **Trampas.** Trucos ocultos que saltan en el turno del rival: Cáscara de Plátano (anula un ataque a tu héroe), Nota Pasivo-Agresiva (anula un truco) y Wasabi Camuflado (3 de daño a la comida que saque). El rival solo ve un «?», así que puede intentar gastarlas con una carta barata, por ejemplo tirando el Cupón de Descuento contra una posible Nota.
 
 Además, los **mazos aleatorios ahora son temáticos**: cada mazo tira hacia una familia y el juego lo indica en el mulligan.
+
+## 2 bis. Cambios de la versión 1.2
+
+- **Combate.** Cinco mecánicas nuevas: Con hambre, A distancia, Arrollar, Salpicón y Cabreo, más una cuarta trampa que salta en los combates entre esbirros (Suelo Recién Fregado).
+- **13 cartas nuevas (85 en total)** enlazadas con lo que ya había: Yogurtera de los 80 acelera las cartas que fermentan, Helado de Tres Bolas y Romper el Hielo dan salida a la congelación, Recalentar en la Sartén reutiliza los Últimos bocados, Fiambrera de Acero premia tener trampas y Tapa de Bravas amplía la Guarnición.
+- **Equilibrio.** Abuela Puri cura 3, El Yogur Primigenio baja a 8/8, se recortan varios Lácteos (Queso Curado, Queso Apestoso, Mantequilla) y suben Alioli, Croqueta y Tupper Misterioso.
+- **Ilustraciones rehechas**: Berenjena de Gimnasio, El Yogur Primigenio, Olla de Lentejas Infinita, Limón Resentido, Chorizo Vengativo, Queso Apestoso y Microondas a Tope, con retoques en Huevo Duro, Coliflor Cerebrito y Kéfir Ancestral.
+- **Animaciones.** La vista reproduce cada jugada paso a paso (golpe, daño, muertes, invocaciones y robos en orden) en lugar de saltar al estado final. Ataques con impulso, impacto y retroceso, partículas, cartel de turno, entrada pausada de la partida y velocidad configurable.
 
 ## 3. Plan de mejora
 
@@ -67,7 +75,7 @@ Ordenado por relación entre impacto y esfuerzo. El esfuerzo es orientativo: S (
 | 2.1 | Búsqueda por turno completo (beam search sobre secuencias) y comprobación de letal | Rival menos predecible y que no regala daño | M |
 | 2.2 | Que la IA juegue alrededor de las trampas, guarde las cartas que fermentan y ordene la guarnición | Las mecánicas nuevas también importan contra la CPU | M |
 | 2.3 | Nivel «Difícil» y personalidades (agresiva, de control) | Rejugabilidad en solitario | S |
-| 2.4 | Banco de equilibrio versionado: simulación de 2.000 partidas con informe por carta y héroe, y ajuste de Abuela y Toni | Decisiones de equilibrio con datos | S |
+| 2.4 | Banco de equilibrio versionado: simulación de 2.000 partidas con informe por carta y héroe, y ajuste de la ventaja de salir primero | Decisiones de equilibrio con datos | S |
 
 ### Fase 3. Modos y progresión
 
@@ -94,7 +102,7 @@ Ordenado por relación entre impacto y esfuerzo. El esfuerzo es orientativo: S (
 |---|---|---|
 | 5.1 | Móvil vertical y vista previa con pulsación larga | M |
 | 5.2 | Juego con teclado, modo de alto contraste e indicadores que no dependan del color | M |
-| 5.3 | Animaciones propias por carta legendaria, música y más voces | M |
+| 5.3 | Animaciones propias por carta legendaria, sonidos grabados en lugar de sintetizados, música y más voces | M |
 | 5.4 | PWA instalable y jugable sin conexión contra la CPU | S |
 | 5.5 | Pruebas en el repositorio (simulador y Playwright) y GitHub Actions que las ejecute en cada push | S |
 | 5.6 | Inglés como segundo idioma (textos ya centralizados en `cards.js`) | M |

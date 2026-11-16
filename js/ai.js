@@ -17,9 +17,13 @@
     if (m.windfury) v += m.attack * 0.7;
     if (m.stealth) v += 0.8;
     if (m.lifesteal) v += m.attack * 0.5;
+    if (m.cleave) v += m.attack * 0.5;
+    if (m.trample) v += m.attack * 0.3;
+    if (m.ranged) v += m.attack * 0.6;
     if (!m.silenced) {
       if (d.deathrattle) v += 1.8;
       if (d.endOfTurn) v += 2.5;
+      if (d.onDamaged) v += 1.2;
     }
     if (m.frozen) v -= m.attack * 0.4;
     return Math.max(0.5, v);

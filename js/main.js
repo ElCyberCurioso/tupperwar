@@ -5,13 +5,18 @@
   const esc = TW.esc;
 
   /* ---------- ajustes persistentes ---------- */
-  const DEFAULTS = { sound: true, level: 'normal', name: '', hero: null };
+  const DEFAULTS = { sound: true, level: 'normal', name: '', hero: null, speed: 'normal' };
   function load(key, def) { try { return Object.assign({}, def, JSON.parse(localStorage.getItem(key) || '{}')); } catch (e) { return Object.assign({}, def); } }
   function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* almacenamiento no disponible */ } }
   const settings = load('tw.settings', DEFAULTS);
   const stats = load('tw.stats', { cpu: { w: 0, l: 0 }, online: { w: 0, l: 0 } });
   TW.saveSettings = (patch) => { Object.assign(settings, patch); save('tw.settings', settings); };
   TW.Sfx.setEnabled(settings.sound);
+  const velParam = +new URLSearchParams(location.search).get('vel'); // ?vel=0.3 para pruebas
+  const applySpeed = () => { TW.speed = velParam > 0 ? velParam : settings.speed === 'rapida' ? 0.6 : 1; };
+  applySpeed();
+  TW.toggleSpeed = () => { TW.saveSettings({ speed: settings.speed === 'rapida' ? 'normal' : 'rapida' }); applySpeed(); return settings.speed; };
+  TW.speedName = () => (settings.speed === 'rapida' ? 'rápidas' : 'normales');
   function record(mode, r) {
     if (r === 'win') stats[mode].w++;
     else if (r === 'loss') stats[mode].l++;
@@ -48,7 +53,7 @@
       <h3>Controles</h3>
       <p>Arrastra una carta de tu mano a la balda para jugarla. Para atacar, arrastra desde un esbirro que brille en verde hasta el objetivo (o haz clic en él y luego en el objetivo). Los trucos con objetivo muestran una flecha de kétchup. Clic derecho o Esc cancela. Pasa el ratón por encima de cualquier cosa para leerla.</p>
       <h3>Estrategia</h3>
-      <p><b>Familias.</b> Muchas comidas son Verdura, Chicha, Lácteo o Guiso, y hay cartas que premian juntar las de una familia (o mezclarlas todas). Cada mazo al azar tira hacia una. <b>Vecinos.</b> Algunas cartas afectan a los esbirros de al lado, así que importa dónde sueltas cada uno, y también cómo coloca los suyos tu rival. <b>Guarnición.</b> Efecto extra si ya has jugado otra carta ese turno: brillan en dorado cuando está activa. <b>Fermenta.</b> Cartas que mejoran cada turno que aguantan en tu mano. <b>Trampas.</b> Se quedan ocultas junto a tu héroe y saltan en el turno del rival: él solo ve un «?».</p>
+      <p><b>Familias.</b> Muchas comidas son Verdura, Chicha, Lácteo o Guiso, y hay cartas que premian juntar las de una familia (o mezclarlas todas). Cada mazo al azar tira hacia una. <b>Vecinos.</b> Algunas cartas afectan a los esbirros de al lado, así que importa dónde sueltas cada uno, y también cómo coloca los suyos tu rival. <b>Guarnición.</b> Efecto extra si ya has jugado otra carta ese turno: brillan en dorado cuando está activa. <b>Fermenta.</b> Cartas que mejoran cada turno que aguantan en tu mano. <b>Combate.</b> Hay esbirros <i>Con hambre</i> (atacan a otros esbirros nada más salir), <i>A distancia</i> (no reciben el golpe de vuelta), con <i>Arrollar</i> (el daño que sobra va al héroe), con <i>Salpicón</i> (dañan también a los vecinos del objetivo) y con <i>Cabreo</i> (reaccionan cada vez que sobreviven a un golpe). <b>Trampas.</b> Se quedan ocultas junto a tu héroe y saltan en el turno del rival: él solo ve un «?».</p>
       <h3>Reglas que conviene saber</h3>
       <p>Máximo 7 esbirros en la balda y 10 cartas en la mano (si robas con la mano llena, la carta se cae al suelo). Si tu mazo se vacía, cada robo te hace daño creciente: «¡Nevera vacía!».</p>
       <h3>Palabras clave</h3><div class="kw-list">${kws}</div>`);
@@ -80,6 +85,7 @@
         <span>Dificultad de la CPU</span>
         <div class="seg" role="group" aria-label="Dificultad"><button data-level="facil" class="${settings.level === 'facil' ? 'on' : ''}">Fácil</button><button data-level="normal" class="${settings.level === 'normal' ? 'on' : ''}">Normal</button></div>
         <button class="chip ${settings.sound ? 'on' : ''}" data-sound>Sonido: ${settings.sound ? 'sí' : 'no'}</button>
+        <button class="chip" data-speed>Animaciones: ${TW.speedName()}</button>
       </div>
       <div class="menu-foot"><span class="stats-line">Contra la CPU: ${line(stats.cpu)}</span><span class="stats-line">Online: ${line(stats.online)}</span></div>
     </div></div>
@@ -99,6 +105,7 @@
       }
       const lv = e.target.closest('[data-level]');
       if (lv) { TW.saveSettings({ level: lv.dataset.level }); renderMenu(); return; }
+      if (e.target.closest('[data-speed]')) { TW.toggleSpeed(); renderMenu(); return; }
       if (e.target.closest('[data-sound]')) { TW.saveSettings({ sound: !settings.sound }); TW.Sfx.setEnabled(settings.sound); renderMenu(); }
     };
     show('menu');
@@ -407,7 +414,7 @@
     u.search = '';
     u.searchParams.set('sala', code);
     const q = new URLSearchParams(location.search);
-    for (const k of ['transporte', 'peerhost', 'peerport', 'peerpath', 'peersecure']) if (q.get(k)) u.searchParams.set(k, q.get(k));
+    for (const k of ['transporte', 'peerhost', 'peerport', 'peerpath', 'peersecure', 'vel']) if (q.get(k)) u.searchParams.set(k, q.get(k));
     return u.toString();
   }
 
