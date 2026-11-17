@@ -186,7 +186,7 @@
       ae.style.display = atk > 0 ? '' : 'none';
       ae.querySelector('span').textContent = atk;
       el.classList.toggle('frozen', h.frozen);
-      el.classList.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(h));
+      el.classList.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(h) && this.hl('attack', h.uid));
     }
 
     renderPower(p) {
@@ -194,7 +194,7 @@
       const key = pl.heroId + (pl.heroPowerUsed ? 'u' : '');
       if (el.dataset.k !== key) { el.innerHTML = TW.heroPowerHTML(pl.heroId, pl.heroPowerUsed); el.dataset.k = key; }
       const ready = p === this.me && this.interactive() && g.canHeroPower(p);
-      el.classList.toggle('ready', ready);
+      el.classList.toggle('ready', ready && this.hl('power'));
       el.disabled = p !== this.me;
     }
     renderWeapon(p) {
@@ -315,7 +315,7 @@
       cls.toggle('taunt', m.taunt); cls.toggle('shield', m.divineShield); cls.toggle('frozen', m.frozen);
       cls.toggle('stealth', m.stealth); cls.toggle('silenced', m.silenced);
       cls.toggle('asleep', m.sleeping && !m.charge && !m.rush && g.s.current === p && !g.s.over);
-      cls.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(m));
+      cls.toggle('can-attack', p === this.me && this.interactive() && g.canAttack(m) && this.hl('attack', m.uid));
       let icons = '';
       if (!m.silenced && d.deathrattle) icons += `<span class="m-icon dr" title="Último bocado">${ICONS.dr}</span>`;
       if (!m.silenced && (d.endOfTurn || d.startOfTurn)) icons += `<span class="m-icon trg" title="Efecto de turno">${ICONS.trg}</span>`;
@@ -352,16 +352,18 @@
           this.handEls.set(c.uid, el);
         }
         seen.add(c.uid);
-        const cd = g.def(c.cardId), bonus = c.bonus || 0;
-        if (el.dataset.b !== String(bonus)) {
+        const cd = g.def(c.cardId), bonus = c.bonus || 0, bkey = bonus + ':' + (c.disc || 0);
+        if (el.dataset.b !== bkey) {
           const first = el.dataset.b === undefined;
-          el.dataset.b = bonus;
-          el.innerHTML = TW.cardHTML(c.cardId, bonus ? { attack: cd.attack + bonus, health: cd.health + bonus } : {});
+          el.dataset.b = bkey;
+          const o = bonus ? { attack: cd.attack + bonus, health: cd.health + bonus } : {};
+          if (c.disc) o.cost = g.costOf(this.me, c);
+          el.innerHTML = TW.cardHTML(c.cardId, o);
           if (first) void el.offsetWidth;
           else el.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.7) saturate(1.4)' }, { filter: 'brightness(1)' }], { duration: 700 });
         }
         const canPlay = this.interactive() && g.canPlay(this.me, c.uid);
-        el.classList.toggle('playable', canPlay);
+        el.classList.toggle('playable', canPlay && this.hl('play', c.uid));
         el.classList.toggle('combo', canPlay && !!cd.garnish && g.player(this.me).playedThisTurn > 0);
         if (el.dataset.cast) return;
         if (this.drag && this.drag.uid === c.uid && this.drag.moved) return;
@@ -428,7 +430,7 @@
       const g = this.g, mine = g.s.current === this.me && g.s.phase === 'play' && !g.s.over;
       this.endBtn.disabled = !mine || this.busy;
       this.endBtn.textContent = mine ? 'Cerrar la nevera' : g.s.phase === 'mulligan' ? 'Preparando...' : 'Turno rival';
-      this.endBtn.classList.toggle('done', mine && !this.busy && !this.hasActions());
+      this.endBtn.classList.toggle('done', mine && !this.busy && (this.o.highlight ? this.o.highlight('end') : !this.hasActions()));
     }
     renderHistory() {
       const h = this.g.s.history.slice(-8).reverse();
@@ -445,6 +447,9 @@
     }
 
     /* ---------- estado de interacción ---------- */
+    // En el tutorial solo brilla lo que toca hacer
+    hl(kind, uid) { return !this.o.highlight || this.o.highlight(kind, uid); }
+
     interactive() {
       const g = this.g;
       return !this.busy && !this.overlayOpen && g.canAct(this.me);
@@ -809,6 +814,8 @@
 
     async perform(act) {
       if (this.busy || this.dead) return;
+      if (this.o.gate && !this.o.gate(act)) { TW.Sfx.play('error'); this.cancelAll(); return; }
+      let done = false;
       this.busy = true;
       this.hidePreview();
       this.clearAim();
@@ -828,11 +835,13 @@
         if (!ok) { TW.Sfx.play('error'); return; }
         if (this.mode === 'online' && this.o.sendAct) this.o.sendAct(act, this.log.length - 1, this.g.fingerprint());
         await this.playEvents(this.g.flush());
+        done = true;
       } finally {
         this.busy = false;
         this.insertAt = null;
         this.render();
         this.after();
+        if (done && this.o.onAfter) this.o.onAfter(act);
       }
     }
 
@@ -900,7 +909,8 @@
         let n = 0;
         while (!this.dead && !this.g.s.over && this.g.s.current === this.opp && n++ < 40) {
           await sleep(40);
-          const act = TW.AI.chooseAction(this.g, this.opp, this.level);
+          const act = this.o.aiPick ? await this.o.aiPick(this.g, this) : TW.AI.chooseAction(this.g, this.opp, this.level);
+          if (this.dead) return;
           if (!act) break;
           await this.performRemote(act);
           await sleep(T.aiBetween);
@@ -1329,6 +1339,7 @@
     start() {
       const g = this.g;
       if (g.s.phase === 'mulligan') {
+        if (this.o.skipMulligan) { this.myMull = []; this.oppMull = []; this.tryMulligans(); return; }
         if (!g.player(this.me).mulliganDone) this.showMulligan();
         return;
       }
@@ -1424,8 +1435,8 @@
         <button class="btn white" data-m="help">Cómo se juega</button>
         <button class="btn white" data-m="sound">Sonido: ${TW.Sfx.enabled ? 'activado' : 'desactivado'}</button>
         <button class="btn white" data-m="speed">Animaciones: ${TW.speedName ? TW.speedName() : 'normales'}</button>
-        ${this.g.s.over ? '' : `<button class="btn red" data-m="concede">Rendirse</button>`}
-        <button class="btn white" data-m="exit">${online ? 'Salir de la sala' : 'Salir al menú'}</button></div>`, 'menu');
+        ${this.g.s.over || this.o.tutorial ? '' : `<button class="btn red" data-m="concede">Rendirse</button>`}
+        <button class="btn white" data-m="exit">${online ? 'Salir de la sala' : this.o.tutorial ? 'Salir del tutorial' : 'Salir al menú'}</button></div>`, 'menu');
       o.addEventListener('click', (e) => {
         const b = e.target.closest('[data-m]');
         if (!b) { if (e.target === o) { this.closeOverlay(); this.render(); } return; }
@@ -1452,6 +1463,7 @@
     }
 
     showGameOver() {
+      if (this.o.onGameOver && !this.dead && this.overlayOpen !== 'over') { this.overlayOpen = 'over'; this.o.onGameOver(this); return; }
       if (this.dead || this.overlayOpen === 'over') return;
       const g = this.g, w = g.s.winner, won = w === this.me, draw = w === -1;
       const hero = TW.HEROES[g.player(this.me).heroId];

@@ -38,7 +38,9 @@
           traps: [], playedThisTurn: 0,
         });
       }
-      for (const pl of s.players) this.shuffle(pl.deck);
+      if (!opts.noShuffle) for (const pl of s.players) this.shuffle(pl.deck);
+      s.noCoin = !!opts.noCoin;
+      s.noShuffle = !!opts.noShuffle;
       s.first = opts.first ?? this.int(2);
       s.current = s.first;
       for (let i = 0; i < 3; i++) this.draw(s.first);
@@ -113,7 +115,7 @@
         return pl.deck.shift();
       });
       pl.deck.push(...back);
-      this.shuffle(pl.deck);
+      if (!s.noShuffle) this.shuffle(pl.deck);
       pl.mulliganDone = true;
       this.emit({ t: 'mulligan', p, n: back.length });
       if (s.players.every((x) => x.mulliganDone)) this.begin();
@@ -123,7 +125,7 @@
     begin() {
       const s = this.s;
       s.phase = 'play';
-      this.addToHand(1 - s.first, 'cupon');
+      if (!s.noCoin) this.addToHand(1 - s.first, 'cupon');
       this.startTurn(s.first);
     }
 
@@ -187,7 +189,7 @@
     }
 
     /* ---------- cartas ---------- */
-    costOf(p, card) { return this.def(card.cardId).cost; }
+    costOf(p, card) { return Math.max(0, this.def(card.cardId).cost - (card.disc || 0)); }
 
     targetsFor(p, spec) {
       if (!spec) return [];
@@ -505,7 +507,7 @@
       if (i < 0) return;
       b.splice(i, 1);
       this.emit({ t: 'bounce', uid: m.uid, p: m.owner });
-      this.addToHand(m.owner, m.cardId);
+      return this.addToHand(m.owner, m.cardId);
     }
 
     transform(m, id) {
@@ -564,12 +566,12 @@
     missile(from, to, kind = 'bolita') { this.emit({ t: 'missile', from: from && from.uid, to: to && to.uid, kind }); }
 
     // Daño aleatorio repartido: misiles de 1 en 1
-    randomSplash(p, n, minionsOnly = false) {
+    randomSplash(p, n, minionsOnly = false, kind = 'garbanzo') {
       for (let i = 0; i < n; i++) {
         const c = minionsOnly ? this.enemyMinions(p).filter((m) => this.alive(m)) : this.enemyChars(p);
         const t = this.pick(c);
         if (!t) return;
-        this.missile(this.hero(p), t, 'garbanzo');
+        this.missile(this.hero(p), t, kind);
         this.damage(this.spellSrc(p), t, 1);
       }
     }

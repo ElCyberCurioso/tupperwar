@@ -1,6 +1,6 @@
 # Tupperwar: análisis del proyecto y plan de mejora
 
-Estado a 16 de noviembre de 2026, versión 1.2.
+Estado a 17 de noviembre de 2026, versión 1.3.
 
 ## 1. Análisis
 
@@ -54,6 +54,13 @@ Además, los **mazos aleatorios ahora son temáticos**: cada mazo tira hacia una
 - **Ilustraciones rehechas**: Berenjena de Gimnasio, El Yogur Primigenio, Olla de Lentejas Infinita, Limón Resentido, Chorizo Vengativo, Queso Apestoso y Microondas a Tope, con retoques en Huevo Duro, Coliflor Cerebrito y Kéfir Ancestral.
 - **Animaciones.** La vista reproduce cada jugada paso a paso (golpe, daño, muertes, invocaciones y robos en orden) en lugar de saltar al estado final. Ataques con impulso, impacto y retroceso, partículas, cartel de turno, entrada pausada de la partida y velocidad configurable.
 
+## 2 ter. Cambios de la versión 1.3
+
+- **Tutorial jugable** en dos lecciones guiadas por la Abuela Puri (fase 3.4 del plan).
+- **Editor de mazos** con códigos para compartir y cuatro mazos de la casa (fase 1.1). Se elige mazo antes de jugar contra la CPU y online.
+- **Siete héroes nuevos** (11 en total), equilibrados por simulación: en 880 partidas de IA contra IA todos quedan entre el 44 % y el 56 % de victorias (margen de unos ±8 puntos).
+- **Portada nueva** y selector de héroe con la habilidad siempre visible, también al crear o unirse a una sala.
+
 ## 3. Plan de mejora
 
 Ordenado por relación entre impacto y esfuerzo. El esfuerzo es orientativo: S (una sesión), M (dos o tres), L (más).
@@ -62,7 +69,7 @@ Ordenado por relación entre impacto y esfuerzo. El esfuerzo es orientativo: S (
 
 | # | Mejora | Qué aporta | Esfuerzo |
 |---|---|---|---|
-| 1.1 | **Editor de mazos** en la Colección, con guardado local, código de mazo para compartir y selección de mazo antes de jugar (CPU y online) | Es la mayor fuente de estrategia que falta. `Decks.validate` y el guardado ya existen | M |
+| 1.1 | ~~Editor de mazos con códigos~~ (hecho en 1.3). Pendiente: elegir el mazo de la CPU y mazos ligados a un héroe | Más control del rival y más identidad por héroe | S |
 | 1.2 | **Modo «Hacer la compra»** (draft): eliges 1 de 3 cartas, 30 veces | Decisiones de construcción sin exigir conocer toda la colección | S |
 | 1.3 | **Cartas de héroe**: 6 a 8 cartas exclusivas por héroe y un segundo poder a elegir | Que elegir héroe cambie el plan de juego | M |
 | 1.4 | **Rastreador de mazo** en partida y registro de jugadas legible | Permite planificar con lo que queda por robar | S |
@@ -84,7 +91,7 @@ Ordenado por relación entre impacto y esfuerzo. El esfuerzo es orientativo: S (
 | 3.1 | **Modo «Pelea de sobras»**: reglas especiales rotativas (todo cuesta 1 menos, baldas de 4 huecos, solo una familia) | Partidas distintas sin cartas nuevas | S |
 | 3.2 | **Jefes** contra la CPU con mazo y poder propios (la Suegra, el Inspector de Sanidad) | Contenido para un jugador | M |
 | 3.3 | Misiones diarias, logros y desbloqueo de dorsos y héroes alternativos, todo en `localStorage` | Motivo para volver | M |
-| 3.4 | Tutorial guiado de la primera partida | Entrada para quien no conoce Hearthstone | S |
+| 3.4 | ~~Tutorial guiado~~ (hecho en 1.3). Pendiente: una lección de construcción de mazos | Enseña a usar el editor | S |
 | 3.5 | Estadísticas por héroe y por mazo, y repetición de partidas a partir de semilla y acciones | Aprender de las derrotas. El motor ya lo permite | S |
 
 ### Fase 4. Online

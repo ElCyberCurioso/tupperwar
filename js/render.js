@@ -55,9 +55,11 @@
     return h;
   };
 
+  TW.POWER_ICON = { abuela: 'caldito', toni: 'ajeno', chef: 'microbrote', michi: 'hero_michi', concha: 'nevera', cunado: 'barbacoa', marisa: 'vuelta', kevin: 'pizza', lola: 'helado', paco: 'bravas', ingrid: 'kombucha' };
+
   TW.heroPowerHTML = function (heroId, used) {
     const h = TW.HEROES[heroId];
-    const icon = { abuela: 'caldito', toni: 'ajeno', chef: 'microbrote', michi: 'hero_michi' }[heroId];
+    const icon = TW.POWER_ICON[heroId] || 'hero_' + heroId;
     return `<div class="hp-face ${used ? 'used' : ''}">${TW.Art.svg(icon)}</div><div class="hp-cost"><span>${h.power.cost}</span></div>`;
   };
 

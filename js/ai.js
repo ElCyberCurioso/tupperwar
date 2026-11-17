@@ -48,7 +48,7 @@
     if (op.weapon) v -= op.weapon.attack * op.weapon.durability * 0.55;
     if (s.pending) v += 1.5; // un Descubre pendiente es una carta casi segura
     v += me.traps.length * 2.6; // una trampa preparada vale aunque no toque el tablero
-    for (const c of me.hand) if (c.bonus) v += c.bonus * 0.5;
+    for (const c of me.hand) { if (c.bonus) v += c.bonus * 0.5; if (c.disc) v += c.disc * 0.6; }
     const myHp = me.hero.health + me.hero.armor;
     const hasTaunt = me.board.some((m) => m.taunt);
     if (!hasTaunt && potentialDamage(op) >= myHp) v -= 40;
@@ -107,7 +107,8 @@
       let best = null, bestVal = 0.2;
       for (const act of enumerate(g, p)) {
         // Las jugadas aleatorias se promedian con dos simulaciones
-        const runs = act.type === 'play' && /pimiento|tupper|garbanzos|ketchup|nevera|ajeno/.test(act.cardId || '') ? 2 : 1;
+        const randomPower = act.type === 'power' && TW.HEROES[g.player(p).heroId].power.random;
+        const runs = randomPower ? 3 : act.type === 'play' && /pimiento|tupper|garbanzos|ketchup|nevera|ajeno|bravas/.test(act.cardId || '') ? 2 : 1;
         let v = 0, ok = true;
         for (let r = 0; r < runs; r++) {
           const c = simulate(g, act);

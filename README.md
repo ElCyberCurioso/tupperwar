@@ -62,7 +62,40 @@ La velocidad de las animaciones se cambia en el menú principal o en la pausa (n
 
 El análisis del proyecto y el plan de mejora están en [ROADMAP.md](ROADMAP.md).
 
-Hay 4 héroes con poder propio (2 calorías): Abuela Puri cura, Toni hace 1 de daño, Chef Gastón invoca un Microbrote 1/1 y Michi gana ataque y armadura.
+### Héroes
+
+Hay 11 héroes, cada uno con una habilidad propia que se usa una vez por turno:
+
+| Héroe | Habilidad |
+|---|---|
+| Abuela Puri | Restaura 3 de salud (2) |
+| Toni | Inflige 1 de daño (2) |
+| Chef Gastón | Invoca un Microbrote 1/2 (2) |
+| Michi | +2 de ataque este turno y +1 de armadura (2) |
+| Doña Concha | Descubre una carta del mazo de tu rival (3) |
+| El Cuñado | Un efecto al azar: daño, una porción, armadura o robar quemándose (2) |
+| Marisa | Devuelve un esbirro tuyo a la mano y lo abarata 1 (1) |
+| Kevin | Añade una comida aleatoria de coste 4 o menos a tu mano (2) |
+| Lola | Congela; si ya estaba congelado, 2 de daño (2) |
+| Paco | 1 de daño aleatorio por cada carta jugada este turno (2) |
+| Ingrid | Dos comidas de tu mano ganan +1/+1 (2) |
+
+Al elegir héroe (contra la CPU o en una sala online), la ficha de la derecha enseña su habilidad.
+
+### Tutorial
+
+Dos partidas guiadas contra la Abuela Puri, que explica cada mecánica justo cuando aparece y solo deja hacer el paso que toca:
+
+- **Lección 1, Lo básico:** calorías, sacar comida, atacar, Estorbo, habilidad de héroe, Fermenta, Cáscara, trampas, Con hambre, trucos con objetivo, Guarnición y Exprés.
+- **Lección 2, Trucos de chef:** familias, vecinos, A distancia, Cabreo, congelar, Salpicón, Último bocado y Arrollar.
+
+El guion está en `js/tutorial.js`; cada paso es un objeto (`next`, `do`, `cpu`, `cpuSay`, `free`), así que se pueden escribir lecciones nuevas sin tocar el motor.
+
+### Mazos
+
+En **Mis mazos** se crean mazos de 30 cartas (máximo 2 copias de cada una y 1 de cada legendaria) con buscador, filtros, curva de calorías y botón para completar al azar. Se guardan en el navegador y cada uno tiene un **código** (`TW-...`) que recupera el mazo y su nombre en cualquier otro navegador: basta con pegarlo en *Importar código*. Hay además cuatro **mazos de la casa**, uno por familia, que se pueden usar tal cual o copiar y retocar.
+
+Antes de cada partida (contra la CPU u online) eliges héroe y mazo. En online, cada jugador juega con el suyo.
 
 ### Controles
 
@@ -108,10 +141,13 @@ fonts/               Fredoka y Permanent Marker (incluidas, funcionan sin conexi
 js/rng.js            Generador aleatorio con semilla
 js/cards.js          Cartas, héroes y palabras clave  ← aquí se añaden cartas
 js/art.js            Ilustraciones SVG de cada carta y héroe
-js/decks.js          Mazos aleatorios y validación de mazos
+js/decks.js          Mazos aleatorios, de la casa, validación y códigos
 js/engine.js         Motor de reglas (estado plano, clonable y determinista)
 js/ai.js             IA de la CPU (simula cada jugada y elige la mejor)
 js/render.js         HTML de cartas
+js/ui.js             Piezas de interfaz: diálogos, selector de héroe y de mazo
+js/deckbuilder.js    Mis mazos y editor de mazos
+js/tutorial.js       Tutorial jugable (dos lecciones)
 js/game-view.js      Tablero, arrastrar y soltar, flechas y animaciones
 js/net.js            Conexión online (PeerJS / transporte local)
 js/vendor/           PeerJS (MIT)
@@ -135,13 +171,9 @@ js/main.js           Menús, colección, salas online
 
 Los efectos usan la API del motor: `g.damage`, `g.heal`, `g.summon`, `g.draw`, `g.freeze`, `g.buff`, `g.destroy`, `g.silence`, `g.bounce`, `g.transform`, `g.discover`, `g.addToHand`, `g.randomSplash`, `g.pick`, `g.chance`...
 
-## Siguiente paso: mazos personalizados
+## Códigos de mazo
 
-La base ya está preparada:
-
-- `TW.Decks.validate(lista)` aplica las reglas de construcción (30 cartas, máximo 2 copias y 1 por legendaria).
-- `TW.Decks.loadSaved()` y `TW.Decks.saveAll()` guardan mazos en `localStorage`.
-- El motor recibe los mazos como listas de ids (`new TW.Game({ decks: [[...], [...]] })`), así que un editor solo tiene que producir esa lista. En online, quien crea la sala ya envía los mazos de los dos jugadores.
+Un código es `TW-` seguido de un base64url con: versión, cartas sueltas, cartas dobles, nombre en UTF-8 y una suma de control (detecta códigos mal copiados). Las cartas se identifican por su posición en `CODE_IDS` (`js/decks.js`): **las cartas nuevas se añaden siempre al final de esa lista**, o los códigos antiguos dejarían de funcionar.
 
 ## Créditos
 

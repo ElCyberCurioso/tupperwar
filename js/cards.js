@@ -330,7 +330,7 @@
       battlecry: { run: (g, c) => { if (c.combo) g.draw(c.p); } } },
 
     { id: 'huerto', name: 'Huerto Urbano', type: 'spell', cost: 3, rarity: 'rara', syn: 'verdura',
-      text: 'Invoca dos Microbrotes 1/1. Después, tus **Verduras** ganan +1 de ataque.',
+      text: 'Invoca dos Microbrotes 1/2. Después, tus **Verduras** ganan +1 de ataque.',
       flavor: 'Tres tomates en dos años. Carísimos.',
       spell: { canPlay: (g, p) => g.board(p).length < 7,
         run: (g, c) => { g.summon(c.p, 'microbrote'); g.summon(c.p, 'microbrote'); for (const m of g.famMinions(c.p, 'verdura')) g.buff(m, 1, 0); } } },
@@ -462,7 +462,7 @@
       text: '', flavor: 'Croquetas en potencia.' },
     { id: 'taperlentejas', name: 'Táper de Lentejas', type: 'minion', cost: 2, attack: 2, health: 2, rarity: 'comun', token: true,
       keywords: ['taunt'], kw: ['taunt'], text: '**Estorbo**', flavor: 'Te lo llevas, que si no se pone malo.' },
-    { id: 'microbrote', name: 'Microbrote', type: 'minion', cost: 1, attack: 1, health: 1, rarity: 'comun', token: true,
+    { id: 'microbrote', name: 'Microbrote', type: 'minion', cost: 1, attack: 1, health: 2, rarity: 'comun', token: true,
       text: '', flavor: 'Decoración. No se come. Bueno, se puede, pero no se debe.' },
   ];
 
@@ -502,15 +502,73 @@
     chef: {
       id: 'chef', name: 'Chef Gastón', title: 'Tres estrellas, cero humildad',
       hello: 'Esto no es una nevera. Es mi lienzo.', win: 'Deconstruido. Como tu estrategia.', lose: 'Le faltaba sal. A ti.',
-      power: { name: 'Emplatar', cost: 2, text: 'Invoca un Microbrote 1/1.',
+      power: { name: 'Emplatar', cost: 2, text: 'Invoca un Microbrote 1/2.',
         canUse: (g, p) => g.board(p).length < TW.RULES.MAX_BOARD,
         run: (g, c) => g.summon(c.p, 'microbrote') },
+    },
+    concha: {
+      id: 'concha', name: 'Doña Concha', title: 'La vecina del cuarto, que lo sabe todo',
+      hello: 'Me han contado cosas de tu nevera, ¿eh?', win: 'Esto lo sabe ya todo el edificio.', lose: 'Pues yo no he dicho nada, ¿eh?',
+      power: { name: 'Cotilleo', cost: 3, text: '**Descubre** una carta del mazo de tu rival.',
+        canUse: (g, p) => g.player(1 - p).deck.length > 0,
+        run: (g, c) => g.discover(c.p, g.player(1 - c.p).deck.map((x) => x.cardId)) },
+    },
+    cunado: {
+      id: 'cunado', name: 'El Cuñado', title: 'Opina de todo y de barbacoas, más',
+      hello: 'Déjame a mí, que yo de esto sé.', win: 'Te lo dije. Te lo dije en Navidad.', lose: 'Ha sido culpa del carbón.',
+      power: { name: 'Yo controlo', cost: 2, random: true,
+        text: 'Al azar: inflige 2 de daño a un enemigo aleatorio, invoca una Porción Fría 1/1, gana 2 de armadura, o roba una carta y te quemas (2 de daño).',
+        run: (g, c) => {
+          const r = g.int(4);
+          if (r === 0) { const t = g.pick(g.enemyChars(c.p)); g.say(c.self, '¡Mira qué puntería!'); if (t) { g.missile(c.self, t, 'fuego'); g.damage(g.spellSrc(c.p), t, 2); } }
+          else if (r === 1) { g.say(c.self, 'Esto lo he hecho yo.'); g.summon(c.p, 'porcion'); }
+          else if (r === 2) { g.say(c.self, 'Ni me ha dolido.'); g.gainArmor(c.p, 2); }
+          else { g.say(c.self, '¡Ay, que quema!'); g.draw(c.p); g.damage(null, c.self, 2); }
+        } },
+    },
+    marisa: {
+      id: 'marisa', name: 'Marisa', title: 'Ordena la nevera por colores',
+      hello: 'Antes de empezar, vamos a ordenar esto.', win: 'Todo en su sitio. Como debe ser.', lose: 'Esto es un desorden. Me voy.',
+      power: { name: '¿Esto te da alegría?', cost: 1, target: 'friendlyMinion',
+        text: 'Devuelve un esbirro aliado a tu mano. Cuesta 1 menos.',
+        run: (g, c) => { const card = g.bounce(c.target); if (card) card.disc = (card.disc || 0) + 1; } },
+    },
+    kevin: {
+      id: 'kevin', name: 'Kevin', title: 'Repartidor en patinete',
+      hello: '¿Pedido para la nevera? Firma aquí.', win: 'Entregado. Cinco estrellas, porfa.', lose: 'Me he equivocado de portal.',
+      power: { name: 'Pedido a domicilio', cost: 2, random: true, text: 'Añade a tu mano una comida aleatoria que cueste 4 o menos.',
+        canUse: (g, p) => g.player(p).hand.length < TW.RULES.MAX_HAND,
+        run: (g, c) => g.addToHand(c.p, g.pick(g.collectible((d) => d.type === 'minion' && d.cost >= 1 && d.cost <= 4))) },
+    },
+    lola: {
+      id: 'lola', name: 'Lola', title: 'La heladera del chiringuito',
+      hello: '¿Te pongo una bola? De hielo, digo.', win: 'Tranquilo, que se te pasa el frío.', lose: 'Se me ha derretido todo.',
+      power: { name: 'Brisa ártica', cost: 2, target: 'enemyMinion',
+        text: '**Congela** a un esbirro enemigo. Si ya estaba congelado, le inflige 2 de daño.',
+        run: (g, c) => { if (c.target.frozen) { g.missile(c.self, c.target, 'sal'); g.damage(g.spellSrc(c.p), c.target, 2); } else g.freeze(c.target); } },
+    },
+    paco: {
+      id: 'paco', name: 'Paco', title: 'Dueño del Bar Paco, desde 1982',
+      hello: '¿Qué te pongo, campeón?', win: 'Esta ronda la paga la casa.', lose: 'Cerramos, que es tarde.',
+      power: { name: '¡Marchando!', cost: 2, random: true,
+        text: 'Inflige 1 de daño a un enemigo aleatorio por cada carta que hayas jugado este turno (mínimo una vez).',
+        run: (g, c) => g.randomSplash(c.p, Math.max(1, g.player(c.p).playedThisTurn), false, 'fuego') },
+    },
+    ingrid: {
+      id: 'ingrid', name: 'Ingrid', title: 'Hace kombucha en la bañera',
+      hello: 'Huele raro porque está vivo. Tranquilo.', win: 'Los probióticos nunca fallan.', lose: 'Necesito fermentar esto.',
+      power: { name: 'Tarro de cristal', cost: 2, random: true, text: 'Dos comidas aleatorias de tu mano ganan +1/+1. Si no tienes ninguna, roba una carta.',
+        run: (g, c) => {
+          const pool = g.shuffle(g.player(c.p).hand.filter((x) => g.def(x.cardId).type === 'minion')).slice(0, 2);
+          if (!pool.length) g.draw(c.p);
+          for (const card of pool) { card.bonus = (card.bonus || 0) + 1; g.emit({ t: 'ferment', p: c.p, uid: card.uid }); }
+        } },
     },
     michi: {
       id: 'michi', name: 'Michi', title: 'El gato de la encimera',
       hello: 'Miau. (Esto también lo voy a tirar).', win: 'Miau. (Todo al suelo).', lose: 'Miau. (Me voy a dormir 18 horas).',
-      power: { name: 'Zarpazo', cost: 2, text: '+1 de ataque este turno y +2 de armadura.',
-        run: (g, c) => { c.self.tempAttack += 1; g.gainArmor(c.p, 2); } },
+      power: { name: 'Zarpazo', cost: 2, text: '+2 de ataque este turno y +1 de armadura.',
+        run: (g, c) => { c.self.tempAttack += 2; g.gainArmor(c.p, 1); } },
     },
   };
   TW.HERO_LIST = Object.keys(TW.HEROES);
